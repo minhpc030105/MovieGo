@@ -17,6 +17,4 @@ int checkLogin(node head, char **username, char *password, listLoginedAccount *a
 int registerUser(MYSQL *connection, user newUser);
 int changePassword(MYSQL *connection, char *username, char *oldPassword, char *newPassword);
 
-int getUserIdByUsername(MYSQL *conn, const char *username);
-
 #endif

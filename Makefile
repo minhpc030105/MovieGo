@@ -17,9 +17,7 @@ SRC_CLIENT = client/client.c \
 
 SRC_SERVER = server/server.c \
              server/headers/function.c \
-             server/headers/cache.c \
              server/headers/queryUser.c \
-             server/headers/logger.c \
              lib/messages/message.c \
              lib/socket/socket.c \
              lib/users/functionUser.c

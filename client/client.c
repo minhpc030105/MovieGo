@@ -67,13 +67,13 @@ int main(int argc, char **argv) {
                 handleLogin(sockfd, username, password, message, &login_status);
                 
                 if(login_status == LOGIN_SUCCESS_USER){
-                    handleRequestUser(sockfd, username, message);
-                } 
+                    handleRequestUser(sockfd, username, message, "User");
+                }
                 else if(login_status == LOGIN_SUCCESS_MANAGER){
-                    handleRequestManager(sockfd, username, message);
+                    handleRequestUser(sockfd, username, message, "Manager");
                 }
                 else if(login_status == LOGIN_SUCCESS_ADMIN){
-                    handleRequestAdmin(sockfd, username, message);
+                    handleRequestUser(sockfd, username, message, "Admin");
                 }
                 break;
             }

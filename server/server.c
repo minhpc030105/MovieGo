@@ -11,8 +11,6 @@
 #include "../lib/messages/message.h"
 #include "headers/function.h"
 #include "headers/queryUser.h"
-#include "headers/logger.h"
-#include "headers/cache.h"
 #include "../db/connect.h"
 
 #define BACKLOG 20
@@ -52,16 +50,10 @@ int main(int argc, char **argv){
     }
     printf("Connected to database successfully\n");
     
-    // Khởi tạo logger
-    initLogger();
-    
     // Khởi tạo lists
     // Khởi tạo users
     arr = createListLoginedAccount(); 
     selectUser(init_conn, &head, (user){0});
-
-    // Khởi tạo cache
-    initCache(init_conn);
 
     mysql_close(init_conn); 
 
@@ -149,11 +141,6 @@ void *handleCommunicate(void* arg) {
     
         recvMessage(connfd, message); 
         
-        // message nhận được
-        if (strlen(message) > 0) {
-            logMessage(connfd, "RECV", message);
-        }
-        
         // Nếu message rỗng hoặc client đóng kết nối
         if (strlen(message) == 0) {
             printf("Client (fd: %d) disconnected unexpected.\n", connfd);
@@ -201,96 +188,7 @@ void *handleCommunicate(void* arg) {
             
         } else if(strcmp(cmd, "CHANGE_PASSWORD") == 0){
             handleChangePassword(connfd, conn, &head);
-        
-        /* ========== BROWSE FILM ========== */
-        } else if(strcmp(cmd, "SHOW_CATEGORIES") == 0){
-            handleShowCategory(conn, connfd);
-    
-        } else if(strcmp(cmd, "BROWSE_CATEGORY") == 0){  
-            char category_id[256];
-            resolveBrowseCategoryMessage(category_id);
-            handleBrowseCategory(conn, connfd, category_id);
 
-        } else if(strcmp(cmd, "SHOW_CINEMAS") == 0){  
-            handleShowCinema(conn, connfd);
-
-        } else if(strcmp(cmd, "BROWSE_CINEMA") == 0){ 
-            char cinema_id[256];
-            resolveBrowseCinemaMessage(cinema_id);
-            handleBrowseCinema(conn, connfd, cinema_id);
-
-        } else if(strcmp(cmd, "SHOW_PREMIERED_TIME") == 0){
-            handleShowPremieredTime(conn, connfd);
-
-        } else if(strcmp(cmd, "BROWSE_PREMIERED_TIME") == 0){  
-            char time_slot[256];
-            resolveBrowsePremieredTimeMessage(time_slot);
-            handleBrowseShowTime(conn, connfd, time_slot);
-            
-        /* ========== BOOK TICKET ========== */
-        } else if(strcmp(cmd, "SHOW_FILMS") == 0){  
-            handleShowFilm(conn, connfd);
-
-        } else if(strcmp(cmd, "SHOW_CINEMA_BY_FILM") == 0){  
-            handleShowCinemaByFilm(conn, connfd);
-
-        } else if(strcmp(cmd, "SHOW_TIME_BY_FILM_CINEMA") == 0){  
-            handleShowTimeByFilmCinema(conn, connfd);
-
-        } else if(strcmp(cmd, "SHOW_SEATS") == 0){  
-            handleShowSeat(conn, connfd);
-
-        } else if (strcmp(cmd, "BOOK_TICKET") == 0) {
-            char showtime_id[256];
-            char seat_id[256];
-            resolveBookTicketMessage(showtime_id, seat_id);
-            handleBookTicket(conn, connfd, username, showtime_id, seat_id);
-        /* ========== SEARCH FILM ========== */
-        } else if(strcmp(cmd, "SEARCH_FILM_BY_TITLE") == 0){  
-            char title[256];
-            resolveSearchFilmByTitleMessage(title);
-            handleSearchFilmByTitle(conn, connfd, title);
-        /* ========== ADD FILM ========== */
-        } else if(strcmp(cmd, "ADD_FILM") == 0) {
-            char title[256];
-            char category_id[256];
-            char show_time[256];
-            resolveAddFilmMessage(title, category_id, show_time);
-            printf("[DEBUG] ADD_FILM params - title: %s, category_id: %s, show_time: %s\n", title, category_id, show_time);
-            handleAddFilm(conn, connfd, title, category_id, show_time);
-        /* ========== VIEW TICKETS ========== */
-        } else if(strcmp(cmd, "VIEW_TICKETS") == 0) {
-            char username[256];
-            resolveViewTicketsMessage(username);
-            handleViewTickets(conn, connfd, username);
-        } else if(strcmp(cmd, "VIEW_TICKET_DETAIL") == 0) {
-            char ticket_id[256];
-            resolveViewTicketDetailMessage(ticket_id);
-            handleViewTicketDetail(conn, connfd, ticket_id);
-        } else if(strcmp(cmd, "SHOW_ROOMS_BY_CINEMA") == 0) {
-            char cinema_id[256];
-            resolveShowRoomsByCinemaMessage(cinema_id);
-            handleShowRoomsByCinema(conn, connfd, cinema_id);
-        } else if(strcmp(cmd, "SHOW_SHOWTIMES_BY_ROOM") == 0) {
-            char room_id[256];
-            resolveShowShowtimesByRoomMessage(room_id);
-            handleShowShowtimesByRoom(conn, connfd, room_id);
-        } else if(strcmp(cmd, "ADD_SHOWTIME") == 0) {
-            char film_id[256];
-            char cinema_id[256];
-            char room_id[256];
-            char start_datetime[256];
-            resolveAddShowTimeMessage(film_id, cinema_id, room_id, start_datetime);
-            handleAddShowTime(conn, connfd, film_id, cinema_id, room_id, start_datetime);
-        /* ========== ADMIN MANAGEMENT ========== */
-        } else if(strcmp(cmd, "SHOW_ALL_USERS") == 0){
-            handleShowAllUsers(conn, connfd);
-        } else if(strcmp(cmd, "DELETE_USER") == 0){
-            handleDeleteUser(conn, connfd);
-            
-        } else if(strcmp(cmd, "CHANGE_USER_ROLE") == 0){
-            handleChangeUserRole(conn, connfd);
-            
         } else {
             printf("[ERROR] Unknown command from fd %d: %s\n", connfd, cmd);
             sendMessage(connfd, "ERROR: Unknown command."); 
