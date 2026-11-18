@@ -7,6 +7,9 @@
 #define SALT_HEX_LEN 33 // 16 bytes = 32 hex chars + '\0'
 #define HASH_HEX_LEN 65 // 32 bytes SHA256 = 64 hex chars + '\0'
 
+/* Tránh xung đột tên hàm với hàm nội bộ hash_password() của thư viện MySQL */
+#define hash_password sec_hash_password
+
 /**
  * @brief Sinh chuỗi Salt ngẫu nhiên dạng Hex (16 bytes = 32 hex chars)
  * @param salt_out Buffer nhận chuỗi hex (tối thiểu SALT_HEX_LEN bytes)
@@ -32,4 +35,3 @@ void hash_password(const char *password, const char *salt, char *hash_out);
 int verify_password(const char *password, const char *salt, const char *expected_hash);
 
 #endif // SECURITY_UTILS_H
-
