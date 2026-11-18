@@ -1,3 +1,8 @@
+#ifndef CONNECT_H
+#define CONNECT_H
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <mysql/mysql.h>
 
 #define SERVER "localhost"
@@ -5,18 +10,31 @@
 #define PASSWORD "123456"
 #define DATABASE "booking"
 
-void connectDatabase(MYSQL **connection) {
-    *connection = mysql_init(NULL);
+/**
+ * @brief Kết nối tới cơ sở dữ liệu MySQL
+ * @param connection Con trỏ kép nhận đối tượng MYSQL*
+ * @return 0 nếu kết nối thành công, -1 nếu thất bại (không dùng exit để tránh sập server)
+ */
+static inline int connectDatabase(MYSQL **connection) {
+    if (connection == NULL) {
+        fprintf(stderr, "Error: connection pointer is NULL\n");
+        return -1;
+    }
 
+    *connection = mysql_init(NULL);
     if (*connection == NULL) {
-        printf("Couldn't connect to database\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Error: mysql_init failed (not enough memory)\n");
+        return -1;
     }
     
-    if(mysql_real_connect(*connection, SERVER, USER, PASSWORD, DATABASE, 0, NULL, 0) == NULL) {
-        printf("Error connecting to database: %s\n", mysql_error(*connection));
+    if (mysql_real_connect(*connection, SERVER, USER, PASSWORD, DATABASE, 0, NULL, 0) == NULL) {
+        fprintf(stderr, "Error connecting to database '%s': %s\n", DATABASE, mysql_error(*connection));
         mysql_close(*connection);
-        exit(EXIT_FAILURE);
+        *connection = NULL;
+        return -1;
     }
+
+    return 0;
 }
 
+#endif // CONNECT_H
