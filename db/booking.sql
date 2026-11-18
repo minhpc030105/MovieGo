@@ -7,6 +7,7 @@ CREATE TABLE users (
     name varchar(255) NOT NULL,
     username varchar(255) NOT NULL,
     password varchar(255) NOT NULL,
+    salt varchar(64) DEFAULT '',
     role_id bigint(20) NOT NULL
 );
 
