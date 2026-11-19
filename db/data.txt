@@ -1,10 +1,10 @@
 -- Users (role_id: 1=manager, 2=user, 0=admin)
-INSERT INTO users (name, username, password, role_id) VALUES
-('Nguyen Van A', 'manager', 'manager123', 1),
-('Tran Thi B', 'user1', 'pass123', 2),
-('Le Van C', 'user2', 'pass456', 2),
-('Mai Huy Long, 'longmh', '123456', 0),
-('Pham Thi D', 'user3', 'pass789', 2);
+INSERT INTO users (name, username, password, salt, role_id) VALUES
+('Nguyen Van A', 'manager', '5129723de173be1253dcf7431e10c1d07dba99a164750f7cca13792f23bc512b', '54b952366034ad1e0ce9b3bb228bbecb', 1),
+('Tran Thi B', 'user1', 'e7ebea8c4671d208854c75e2bc467bc65c89b8ebec10c54542985950b1f5384c', 'b6814b90ec173389056f8d663b586053', 2),
+('Le Van C', 'user2', '91021677f9df186c9bb638fde807ccf36627fbc0b0af80e2233e90fa37ec93ee', 'de7beeab34ac3d34990c698583462a2a', 2),
+('Mai Huy Long', 'longmh', '73d00103cf6c46f25f5ddd8d2025e5dd465fa97c8a5466a5d72d20c524a93dd3', '5f05d8cf38f0baf828d65ffaffd31d34', 0),
+('Pham Thi D', 'user3', '245776f45e5ee0835f7c078a98dd9c743bad54b0809f8d47f59c8d254db55fbe', '65258bb4c063d1f36544c4b4849c5175', 2);
 
 -- Cinemas
 INSERT INTO cinemas (name, address) VALUES

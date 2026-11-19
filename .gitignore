@@ -1,0 +1,82 @@
+.agents/
+.agents
+docs/
+
+# ==============================================================================
+# C / C++ Compilation & Executables
+# ==============================================================================
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+
+# Project specific compiled binaries
+client_out
+server_out
+test_connect
+
+# Debugging & Profiling
+*.dSYM/
+*.su
+*.idb
+*.pdb
+gmon.out
+valgrind*.log
+
+# ==============================================================================
+# Qt / QMake Build Artifacts
+# ==============================================================================
+*.stash
+.qmake.stash
+client_qt/.qmake.stash
+client_qt/Makefile*
+client_qt/client_qt
+client_qt/client_qt.exe
+client_qt/moc_*.cpp
+client_qt/moc_*.h
+client_qt/moc_predefs.h
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+*.moc
+*.user
+*.user.*
+*.autosave
+build/
+build-*/
+
+# ==============================================================================
+# IDEs & Text Editors
+# ==============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+.vs/
+*.sln
+*.vcxproj*
+
+# ==============================================================================
+# OS Generated Files
+# ==============================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==============================================================================
+# Logs, Temp Files & Environment
+# ==============================================================================
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+
