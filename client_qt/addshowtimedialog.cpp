@@ -137,7 +137,8 @@ void AddShowTimeDialog::loadFilms()
     sprintf(message, "SHOW_FILMS\r\n");
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result != FIND_FILM_SUCCESS && result != NO_FILMS) {
         QMessageBox::warning(this, "Error", "Failed to load films!");
         return;
@@ -147,15 +148,9 @@ void AddShowTimeDialog::loadFilms()
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        QString line = QString::fromUtf8(message).trimmed();
-        
-        if (line == "END" || line.isEmpty()) {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString line = QString::fromUtf8(row_text).trimmed();
+
         QStringList parts = line.split(". ");
         if (parts.size() >= 2) {
             QString id = parts[0].trimmed();
@@ -180,7 +175,8 @@ void AddShowTimeDialog::loadCinemas()
     sprintf(message, "SHOW_CINEMAS\r\n");
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
         QMessageBox::warning(this, "Error", "Failed to load cinemas!");
         return;
@@ -190,15 +186,9 @@ void AddShowTimeDialog::loadCinemas()
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        QString line = QString::fromUtf8(message).trimmed();
-        
-        if (line == "END" || line.isEmpty()) {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString line = QString::fromUtf8(row_text).trimmed();
+
         QStringList parts = line.split(". ");
         if (parts.size() >= 2) {
             QString id = parts[0].trimmed();
@@ -227,7 +217,8 @@ void AddShowTimeDialog::loadRooms(const QString &cinemaId)
     sprintf(message, "SHOW_ROOMS_BY_CINEMA\r\n%s\r\n", cinemaId.toUtf8().constData());
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result == INVALID_CINEMA) {
         QMessageBox::warning(this, "Error", "Invalid cinema ID!");
         return;
@@ -241,15 +232,9 @@ void AddShowTimeDialog::loadRooms(const QString &cinemaId)
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        QString line = QString::fromUtf8(message).trimmed();
-        
-        if (line == "END" || line.isEmpty()) {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString line = QString::fromUtf8(row_text).trimmed();
+
         QStringList parts = line.split(" | ");
         if (parts.size() >= 2) {
             QString idPart = parts[0].trimmed();
@@ -278,7 +263,8 @@ void AddShowTimeDialog::loadShowtimes(const QString &roomId)
     sprintf(message, "SHOW_SHOWTIMES_BY_ROOM\r\n%s\r\n", roomId.toUtf8().constData());
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result == SHOW_TIME_FAIL) {
         int row = showtimeTable->rowCount();
         showtimeTable->insertRow(row);
@@ -294,15 +280,9 @@ void AddShowTimeDialog::loadShowtimes(const QString &roomId)
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        QString line = QString::fromUtf8(message).trimmed();
-        
-        if (line == "END" || line.isEmpty()) {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString line = QString::fromUtf8(row_text).trimmed();
+
         int row = showtimeTable->rowCount();
         showtimeTable->insertRow(row);
         

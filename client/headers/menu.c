@@ -15,9 +15,9 @@ void viewWelcome(){
 
 void viewLogin(char username[], char password[]){
     printf("Username: ");
-    scanf("%s", username);
+    scanf("%254s", username);
     printf("Password: ");
-    scanf("%s", password);
+    scanf("%254s", password);
 }
 
 void viewRegister(char *name, char *username, char *password) {
@@ -25,10 +25,11 @@ void viewRegister(char *name, char *username, char *password) {
     printf("Full Name: ");
     memset(name, 0, 255);
     fgets(name, 255, stdin);
+    name[strcspn(name, "\r\n")] = 0;
     printf("Username: ");
-    scanf("%s", username);
+    scanf("%254s", username);
     printf("Password: ");
-    scanf("%s", password);
+    scanf("%254s", password);
 }
 
 void viewUser(){
@@ -45,9 +46,9 @@ void viewUser(){
 void viewChangePassword(char *oldPassword, char *newPassword) {
     printf("Change Password\n");
     printf("Old Password: ");
-    scanf("%s", oldPassword);
+    scanf("%254s", oldPassword);
     printf("New Password: ");
-    scanf("%s", newPassword);
+    scanf("%254s", newPassword);
 }
 
 
@@ -67,9 +68,10 @@ void addNewFilm(int sockfd, char title[], char category_id[], char show_time[], 
 
     makeShowCategoryMessage(message);
     sendMessage(sockfd, message);
-    recvMessage(sockfd, message);
-
-    printf("Category:\n%s\n", message);
+    MovieResponse reply;
+    receive_response(sockfd, &reply);
+    char *line;
+    while ((line = next_response_line(&reply))) puts(line);
     getInput("Choice: ", category_id, 255);
 
     getInput("Show time: ", show_time, 255);

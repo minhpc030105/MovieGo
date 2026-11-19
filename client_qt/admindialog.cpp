@@ -96,22 +96,16 @@ void AdminDialog::loadAllUsers()
     sendMessage(sockfd, message);
     
     // Receive result code
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     
     if (result == SHOW_ALL_USERS_SUCCESS) {
-        // Receive user data - multiple messages until "END"
+        // Read user rows from this response.
         QList<QStringList> userData;
         
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            
-            QString line = QString::fromUtf8(message).trimmed();
-            
-            if (line == "END") {
-                break;
-            }
-            
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            QString line = QString::fromUtf8(row_text).trimmed();
+
             if (!line.isEmpty()) {
                 // Parse format: "id|name|username|role"
                 QStringList parts = line.split('|');
@@ -262,11 +256,6 @@ void AdminDialog::onLogoutClicked()
     );
     
     if (reply == QMessageBox::Yes) {
-        // Send logout request
-        char message[255];
-        makeLogoutMessage(message);
-        sendMessage(sockfd, message);
-        
         accept(); 
     }
 }

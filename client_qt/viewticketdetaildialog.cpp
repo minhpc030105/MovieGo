@@ -84,7 +84,8 @@ void ViewTicketDetailDialog::loadTicketDetail()
     sendMessage(sockfd, message);
     
     // Receive result code
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     
     if (result == TICKET_NOT_FOUND) {
         QMessageBox::warning(this, "Error", "Ticket not found!");
@@ -99,16 +100,9 @@ void ViewTicketDetailDialog::loadTicketDetail()
     // Receive response data
     QString customer, film, cinema, room, showtime, booked;
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        
-        QString response = QString::fromUtf8(message);
-        
-        if (response == "END") {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString response = QString::fromUtf8(row_text);
+
         // Parse different lines
         if (response.contains("TICKET DETAIL")) {
             // Skip header

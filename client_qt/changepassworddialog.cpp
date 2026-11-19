@@ -77,12 +77,15 @@ void ChangePasswordDialog::onChangeClicked()
     }
     
     // Send change password request to server
-    char message[255];
-    char username[255] = "";
+    char message[1024];
     QByteArray oldPassBytes = oldPassword.toUtf8();
     QByteArray newPassBytes = newPassword.toUtf8();
     
-    makeChangePasswordMessage(username, oldPassBytes.data(), newPassBytes.data(), message);
+    if (oldPassBytes.size() > 255 || newPassBytes.size() > 255) {
+        statusLabel->setText("Each field must be at most 255 UTF-8 bytes.");
+        return;
+    }
+    makeChangePasswordMessage(oldPassBytes.data(), newPassBytes.data(), message);
     sendMessage(sockfd, message);
     
     // Receive response

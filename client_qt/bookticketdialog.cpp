@@ -135,7 +135,8 @@ void BookTicketDialog::loadFilms()
     sprintf(message, "SHOW_FILMS\r\n");
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     filmListWidget->clear();
     
     if (result != FIND_FILM_SUCCESS && result != NO_FILMS) {
@@ -147,11 +148,8 @@ void BookTicketDialog::loadFilms()
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        if (strcmp(message, "END") == 0) break;
-        filmListWidget->addItem(QString::fromUtf8(message));
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        filmListWidget->addItem(QString::fromUtf8(row_text));
     }
 }
 
@@ -161,7 +159,8 @@ void BookTicketDialog::loadCinemas(const QString &filmId)
     sprintf(message, "SHOW_CINEMA_BY_FILM\r\n%s\r\n", filmId.toUtf8().constData());
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     cinemaListWidget->clear();
     
     if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
@@ -173,11 +172,8 @@ void BookTicketDialog::loadCinemas(const QString &filmId)
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        if (strcmp(message, "END") == 0) break;
-        cinemaListWidget->addItem(QString::fromUtf8(message));
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        cinemaListWidget->addItem(QString::fromUtf8(row_text));
     }
 }
 
@@ -189,7 +185,8 @@ void BookTicketDialog::loadShowtimes(const QString &filmId, const QString &cinem
             cinemaId.toUtf8().constData());
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     showtimeListWidget->clear();
     
     if (result != BROWSE_TIME_SUCCESS && result != NO_SHOWTIMES) {
@@ -201,11 +198,8 @@ void BookTicketDialog::loadShowtimes(const QString &filmId, const QString &cinem
         return;
     }
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        if (strcmp(message, "END") == 0) break;
-        showtimeListWidget->addItem(QString::fromUtf8(message));
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        showtimeListWidget->addItem(QString::fromUtf8(row_text));
     }
 }
 
@@ -215,7 +209,8 @@ void BookTicketDialog::loadSeats(const QString &showtimeId)
     sprintf(message, "SHOW_SEATS\r\n%s\r\n", showtimeId.toUtf8().constData());
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     seatListWidget->clear();
     
     if (result == INVALID_REQUEST || result == INVALID_SHOWTIME) {
@@ -233,12 +228,8 @@ void BookTicketDialog::loadSeats(const QString &showtimeId)
     
     bool hasSeats = false;
     
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        if (strcmp(message, "END") == 0) break;
-        
-        QString msg = QString::fromUtf8(message);
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString msg = QString::fromUtf8(row_text);
         if (msg.startsWith("SEAT|")) {
             hasSeats = true;
             QStringList parts = msg.split("|");

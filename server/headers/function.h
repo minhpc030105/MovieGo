@@ -1,47 +1,50 @@
-#ifndef FUNCTION_H
-#define FUNCTION_H
-
+#ifndef MOVIEGO_HANDLERS_H
+#define MOVIEGO_HANDLERS_H
+#include <stdbool.h>
+#include <stddef.h>
 #include <mysql/mysql.h>
-#include "../../lib/socket/socket.h"
-#include "../../lib/messages/message.h"
-#include "queryUser.h"
+#include "../../lib/resultCodes.h"
 
-void handleLogin(int connfd, listLoginedAccount *arr, node *h, char *username, char *password);
+typedef struct Session {
+    MYSQL *db;
+    unsigned long long user_id;
+    int role_id;
+    bool is_auth;
+    bool closing;
+    char username[256];
+    struct Session *next_online;
+} Session;
 
-void handleRegister(MYSQL *conn, int connfd, node *h, char *name, char *username, char *password);
+// Return a result code. Optional body lines go in resp_buf, prefixed with CRLF.
+typedef int Handler(Session *session, const char *payload, char *resp_buf, size_t buf_size);
+Handler handle_login;
+Handler handle_register;
+Handler handle_logout;
+Handler handle_exit;
+Handler handle_change_password;
+Handler handle_show_categories;
+Handler handle_browse_category;
+Handler handle_show_cinemas;
+Handler handle_browse_cinema;
+Handler handle_show_times;
+Handler handle_browse_time;
+Handler handle_show_films;
+Handler handle_film_cinemas;
+Handler handle_film_showtimes;
+Handler handle_show_seats;
+Handler handle_book_ticket;
+Handler handle_search_films;
+Handler handle_add_film;
+Handler handle_view_tickets;
+Handler handle_ticket_detail;
+Handler handle_cinema_rooms;
+Handler handle_room_showtimes;
+Handler handle_add_showtime;
+Handler handle_show_users;
+Handler handle_delete_user;
+Handler handle_change_role;
 
-void handleChangePassword(int connfd, MYSQL *conn, node* h);
-
-void handleLogout(int connfd, listLoginedAccount *arr, char *username);
-
-void handleSearchFilmByTitle(MYSQL *conn, int connfd, char *title);
-
-void handleShowFilm(MYSQL *conn, int connfd);
-void handleShowCinemaByFilm(MYSQL *conn, int connfd);
-void handleShowTimeByFilmCinema(MYSQL *conn, int connfd);
-void handleShowSeat(MYSQL *conn, int connfd);
-void handleBookTicket(MYSQL *conn, int connfd, char *username, char *showtime_id, char *seat_id);
-
-void handleShowCategory(MYSQL *conn, int connfd);
-void handleShowCinema(MYSQL *conn, int connfd);
-void handleShowPremieredTime(MYSQL *conn, int connfd);
-
-void handleBrowseCategory(MYSQL *conn, int connfd, char *category_id);
-void handleBrowseCinema(MYSQL *conn, int connfd, char *cinema_id);
-void handleBrowseShowTime(MYSQL *conn, int connfd, char *premiered_time_id);
-
-
-void handleAddFilm(MYSQL *conn, int connfd, char *title, char *category_id, char *show_time);
-
-void handleShowRoomsByCinema(MYSQL *conn, int connfd, char *cinema_id);
-void handleShowShowtimesByRoom(MYSQL *conn, int connfd, char *room_id);
-void handleAddShowTime(MYSQL *conn, int connfd, char *film_id, char *cinema_id, char *room_id, char *start_datetime);
-
-void handleViewTickets(MYSQL *conn, int connfd, char *username);
-void handleViewTicketDetail(MYSQL *conn, int connfd, char *ticket_id);
-
-void handleShowAllUsers(MYSQL *conn, int connfd);
-void handleDeleteUser(MYSQL *conn, int connfd);
-void handleChangeUserRole(MYSQL *conn, int connfd);
-
+void clear_session(Session *session);
+int refresh_role(Session *session);
+int dispatch_request(Session *session, char *request, char *response, size_t capacity);
 #endif

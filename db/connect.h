@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <mysql/mysql.h>
 
 #define SERVER "localhost"
@@ -10,13 +12,14 @@ void connectDatabase(MYSQL **connection) {
 
     if (*connection == NULL) {
         printf("Couldn't connect to database\n");
-        exit(EXIT_FAILURE);
+        return;
     }
     
-    if(mysql_real_connect(*connection, SERVER, USER, PASSWORD, DATABASE, 0, NULL, 0) == NULL) {
+    if(mysql_real_connect(*connection, SERVER, USER, PASSWORD, DATABASE, 0, getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) == NULL) {
         printf("Error connecting to database: %s\n", mysql_error(*connection));
         mysql_close(*connection);
-        exit(EXIT_FAILURE);
+        *connection = NULL;
+        return;
     }
 }
 

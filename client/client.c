@@ -38,17 +38,10 @@ int main(int argc, char **argv) {
     }
 
 
-    char conn_mess[BUFSIZE];
-    memset(conn_mess, 0, BUFSIZE);
-
-    if (recv(sockfd, conn_mess, sizeof(conn_mess), 0) > 0) {
-        printf("\n\n%s\n\n", conn_mess);
-    }
-
     int choice;
     int login_status = 0;
     
-    char message[STR_LEN];
+    char message[1024];
     char username[STR_LEN];
     char password[STR_LEN];
 
@@ -86,6 +79,7 @@ int main(int argc, char **argv) {
                 printf("\n\nThanks for coming to MovieGo!!\n\n");
                 
                 sendMessage(sockfd, "EXIT");
+                recvResult(sockfd);
                 
                 close(sockfd);
                 return 0; 

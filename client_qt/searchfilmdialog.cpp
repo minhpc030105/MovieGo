@@ -74,18 +74,21 @@ void SearchFilmDialog::onSearchClicked()
     }
     
     char message[1024];
-    sprintf(message, "SEARCH_FILM_BY_TITLE\r\n%s\r\n", title.toUtf8().constData());
+    QByteArray titleBytes = title.toUtf8();
+    if (titleBytes.size() > 255) {
+        QMessageBox::warning(this, "Search", "Film title must be at most 255 UTF-8 bytes.");
+        return;
+    }
+    makeSearchFilmByTitleMessage(titleBytes.data(), message);
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     resultListWidget->clear();
     
     if (result == FIND_FILM_SUCCESS) {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            if (strcmp(message, "END") == 0) break;
-            resultListWidget->addItem(QString::fromUtf8(message));
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            resultListWidget->addItem(QString::fromUtf8(row_text));
         }
         
         if (resultListWidget->count() == 0) {

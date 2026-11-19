@@ -1,6 +1,5 @@
 #include "logger.h"
 #include <pthread.h>
-#include "../../lib/socket/socket.h"
 
 static FILE* log_file = NULL;
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -54,14 +53,4 @@ void logResult(int connfd, const char* direction, int result) {
     char msg[64];
     snprintf(msg, sizeof(msg), "RESULT=%d", result);
     logMessage(connfd, direction, msg);
-}
-
-void sendMessageLogged(int connfd, char *message) {
-    logMessage(connfd, "SEND", message);
-    sendMessage(connfd, message);
-}
-
-void sendResultLogged(int connfd, int result) {
-    logResult(connfd, "SEND", result);
-    sendResult(connfd, result);
 }

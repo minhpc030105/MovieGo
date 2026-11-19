@@ -4,6 +4,7 @@
 
 extern "C" {
     #include "../lib/socket/socket.h"
+    #include "../lib/messages/message.h"
 }
 
 ViewTicketsDialog::ViewTicketsDialog(int sockfd, const QString &username, QWidget *parent)
@@ -81,11 +82,12 @@ void ViewTicketsDialog::loadTickets()
     
     // Send VIEW_TICKETS request
     char message[512];
-    sprintf(message, "VIEW_TICKETS\r\n%s\r\n", username.toUtf8().constData());
+    makeViewTicketsMessage(message);
     sendMessage(sockfd, message);
     
     // Receive result code
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     
     if (result == NO_TICKETS) {
         statusLabel->setText("No tickets found.");
@@ -103,16 +105,9 @@ void ViewTicketsDialog::loadTickets()
     // Receive data
     int rowCount = 0;
     bool firstLine = true;
-    while (true) {
-        memset(message, 0, sizeof(message));
-        recvMessage(sockfd, message);
-        
-        QString response = QString::fromUtf8(message);
-        
-        if (response == "END") {
-            break;
-        }
-        
+    for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+        QString response = QString::fromUtf8(row_text);
+
         // Skip header line
         if (firstLine) {
             firstLine = false;

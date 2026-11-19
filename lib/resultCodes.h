@@ -104,3 +104,12 @@
 /*----------END ADMIN MANAGEMENT----------*/
 
 /*====================END RESULT CODE====================*/
+
+#define AUTH_REQUIRED             3028
+#define PERMISSION_DENIED         3029
+#define RESPONSE_TOO_LARGE        3030
+#define SERVER_BUSY               3031
+#define SEAT_TAKEN                3032
+#define PAY_ALREADY_DONE          3033
+#define BOOKING_EXPIRED           3034
+#define NOT_ENOUGH_BALANCE        3035

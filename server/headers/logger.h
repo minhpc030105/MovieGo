@@ -10,10 +10,4 @@ void logResult(int connfd, const char* direction, int result);
 void initLogger();
 void closeLogger();
 
-void sendMessageLogged(int connfd, char *message);
-void sendResultLogged(int connfd, int result);
-
-#define SEND_MSG(fd, msg) sendMessageLogged(fd, msg)
-#define SEND_RESULT(fd, res) sendResultLogged(fd, res)
-
-#endif 
+#endif

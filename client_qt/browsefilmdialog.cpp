@@ -56,17 +56,15 @@ void BrowseFilmDialog::setupUI()
     sprintf(message, "SHOW_CATEGORIES\r\n");
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result != SHOW_CATEGORY_SUCCESS && result != NO_CATEGORIES) {
         QMessageBox::warning(this, "Error", "Failed to load categories!");
     } else if (result == NO_CATEGORIES) {
         QMessageBox::information(this, "Info", "No categories available!");
     } else {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            if (strcmp(message, "END") == 0) break;
-            categoryListWidget->addItem(QString::fromUtf8(message));
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            categoryListWidget->addItem(QString::fromUtf8(row_text));
         }
     }
     
@@ -98,17 +96,14 @@ void BrowseFilmDialog::setupUI()
     sprintf(message, "SHOW_CINEMAS\r\n");
     sendMessage(sockfd, message);
     
-    result = recvResult(sockfd);
+    result = receive_response(sockfd, &reply);
     if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
         QMessageBox::warning(this, "Error", "Failed to load cinemas!");
     } else if (result == NO_CINEMAS) {
         QMessageBox::information(this, "Info", "No cinemas available!");
     } else {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            if (strcmp(message, "END") == 0) break;
-            cinemaListWidget->addItem(QString::fromUtf8(message));
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            cinemaListWidget->addItem(QString::fromUtf8(row_text));
         }
     }
     
@@ -150,15 +145,13 @@ void BrowseFilmDialog::onBrowseByCategory()
     makeBrowseFollowCategoryMessage(categoryIdStr, message);
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     filmByCategoryListWidget->clear();
     
     if (result == BROWSE_CATEGORY_SUCCESS) {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            if (strcmp(message, "END") == 0) break;
-            filmByCategoryListWidget->addItem(QString::fromUtf8(message));
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            filmByCategoryListWidget->addItem(QString::fromUtf8(row_text));
         }
     } else {
         filmByCategoryListWidget->addItem("No films found in this category!");
@@ -186,15 +179,13 @@ void BrowseFilmDialog::onBrowseByCinema()
     makeBrowseFollowCinemaMessage(cinemaIdStr, message);
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     filmByCinemaListWidget->clear();
     
     if (result == BROWSE_THEATER_SUCCESS) {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            if (strcmp(message, "END") == 0) break;
-            filmByCinemaListWidget->addItem(QString::fromUtf8(message));
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            filmByCinemaListWidget->addItem(QString::fromUtf8(row_text));
         }
     } else {
         filmByCinemaListWidget->addItem("No films found in this cinema!");

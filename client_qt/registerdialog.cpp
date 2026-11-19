@@ -79,11 +79,15 @@ void RegisterDialog::onRegisterClicked()
     }
     
     // Send register request to server
-    char message[255];
+    char message[1024];
     QByteArray nameBytes = fullname.toUtf8();
     QByteArray userBytes = username.toUtf8();
     QByteArray passBytes = password.toUtf8();
     
+    if (nameBytes.size() > 255 || userBytes.size() > 255 || passBytes.size() > 255) {
+        statusLabel->setText("Each field must be at most 255 UTF-8 bytes.");
+        return;
+    }
     makeRegisterMessage(nameBytes.data(), userBytes.data(), passBytes.data(), message);
     sendMessage(sockfd, message);
     

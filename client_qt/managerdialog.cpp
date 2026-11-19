@@ -91,11 +91,6 @@ void ManagerDialog::onLogoutClicked()
     );
     
     if (reply == QMessageBox::Yes) {
-        // Send logout request
-        char message[255];
-        makeLogoutMessage(message);
-        sendMessage(sockfd, message);
-        
         accept();
     }
 }
@@ -126,13 +121,11 @@ void ManagerDialog::showAddFilmDialog()
     sprintf(message, "SHOW_CATEGORIES\r\n");
     sendMessage(sockfd, message);
     
-    int result = recvResult(sockfd);
+    MovieResponse reply;
+    int result = receive_response(sockfd, &reply);
     if (result == SHOW_CATEGORY_SUCCESS) {
-        while (true) {
-            memset(message, 0, sizeof(message));
-            recvMessage(sockfd, message);
-            QString line = QString::fromUtf8(message).trimmed();
-            if (line == "END" || line.isEmpty()) break;
+        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+            QString line = QString::fromUtf8(row_text).trimmed();
             
             // Parse: "1. Action" format
             QStringList parts = line.split(". ");

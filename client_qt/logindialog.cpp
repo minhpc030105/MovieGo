@@ -65,10 +65,14 @@ void LoginDialog::onLoginClicked()
     }
     
     // Send login request to server
-    char message[255];
+    char message[1024];
     QByteArray userBytes = user.toUtf8();
     QByteArray passBytes = pass.toUtf8();
     
+    if (userBytes.size() > 255 || passBytes.size() > 255) {
+        statusLabel->setText("Each field must be at most 255 UTF-8 bytes.");
+        return;
+    }
     makeLoginMessage(userBytes.data(), passBytes.data(), message);
     sendMessage(sockfd, message);
     

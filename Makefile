@@ -16,21 +16,25 @@ SRC_CLIENT = client/client.c \
              lib/socket/socket.c
 
 SRC_SERVER = server/server.c \
-             server/headers/function.c \
+             server/headers/dispatch.c \
+             server/headers/protocol.c \
+             server/headers/data.c \
+             server/headers/auth.c \
+             server/headers/film.c \
+             server/headers/booking.c \
+             server/headers/payment.c \
+             server/headers/admin.c \
              server/headers/cache.c \
-             server/headers/queryUser.c \
              server/headers/logger.c \
-             lib/messages/message.c \
-             lib/socket/socket.c \
-             lib/users/functionUser.c
+             lib/socket/socket.c
 
 # ===== Targets =====
 all: $(OUTPUT_CLIENT) $(OUTPUT_SERVER)
 
-$(OUTPUT_SERVER):
+$(OUTPUT_SERVER): $(SRC_SERVER) $(wildcard server/headers/*.h lib/socket/*.h lib/*.h db/*.h)
 	$(CC) $(CFLAGS) -o $@ $(SRC_SERVER) -I$(MYSQL_INC) $(MYSQL_LIB)
 
-$(OUTPUT_CLIENT):
+$(OUTPUT_CLIENT): $(SRC_CLIENT) $(wildcard client/headers/*.h lib/messages/*.h lib/socket/*.h lib/*.h)
 	$(CC) $(CFLAGS) -o $@ $(SRC_CLIENT) -lm
 
 clean:

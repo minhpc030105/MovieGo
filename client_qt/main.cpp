@@ -47,15 +47,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Receive welcome message from server
-    char conn_mess[BUFSIZE];
-    memset(conn_mess, 0, BUFSIZE);
-
-    if (recv(sockfd, conn_mess, sizeof(conn_mess), 0) > 0) {
-        QMessageBox::information(nullptr, "Connection", 
-            QString::fromUtf8(conn_mess));
-    }
-
     // Create and show main window
     MainWindow window(sockfd);
     window.show();

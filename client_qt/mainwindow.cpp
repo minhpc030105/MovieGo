@@ -151,6 +151,8 @@ void MainWindow::onLoginClicked()
             // Show admin dialog
             AdminDialog adminDialog(sockfd, username, this);
             adminDialog.exec();
+            sendMessage(sockfd, "LOGOUT");
+            recvResult(sockfd);
             
             // After admin dialog closes, return to welcome screen
             statusLabel->setText("");
@@ -159,6 +161,8 @@ void MainWindow::onLoginClicked()
             // Show manager dialog
             ManagerDialog managerDialog(sockfd, username, this);
             managerDialog.exec();
+            sendMessage(sockfd, "LOGOUT");
+            recvResult(sockfd);
             
             // After manager dialog closes, return to welcome screen
             statusLabel->setText("");
