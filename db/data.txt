@@ -1,10 +1,8 @@
--- Users (role_id: 1=manager, 2=user, 0=admin)
-INSERT INTO users (name, username, password, salt, role_id) VALUES
-('Nguyen Van A', 'manager', '5129723de173be1253dcf7431e10c1d07dba99a164750f7cca13792f23bc512b', '54b952366034ad1e0ce9b3bb228bbecb', 1),
-('Tran Thi B', 'user1', 'e7ebea8c4671d208854c75e2bc467bc65c89b8ebec10c54542985950b1f5384c', 'b6814b90ec173389056f8d663b586053', 2),
-('Le Van C', 'user2', '91021677f9df186c9bb638fde807ccf36627fbc0b0af80e2233e90fa37ec93ee', 'de7beeab34ac3d34990c698583462a2a', 2),
-('Mai Huy Long', 'longmh', '73d00103cf6c46f25f5ddd8d2025e5dd465fa97c8a5466a5d72d20c524a93dd3', '5f05d8cf38f0baf828d65ffaffd31d34', 0),
-('Pham Thi D', 'user3', '245776f45e5ee0835f7c078a98dd9c743bad54b0809f8d47f59c8d254db55fbe', '65258bb4c063d1f36544c4b4849c5175', 2);
+-- Users (role_id: 0=admin, 1=manager, 2=user)
+INSERT INTO users (id, name, username, password, salt, role_id) VALUES
+(1, 'System Administrator', 'admin', '17fac54b3784fb0baa385846b884b5176ff0c125ce26e61db707df10b2ca4949', 'f8d381e60b21ea6fd2fcaf37801ae925', 0),
+(2, 'Cinema Manager', 'manager', '69383e5b52a1cbd011c38759fcc70b658a055cbd0ff6de564f02e645cd575300', '6816b4abbafd157e2d316eb86ac45244', 1),
+(3, 'Standard Customer', 'user', '1515b6974a1dc9b61f96b058658a757536a71a00e837c396713fb3f3939462fd', '6379d3eb48401991f377d9c047c34d20', 2);
 
 -- Cinemas
 INSERT INTO cinemas (name, address) VALUES
@@ -123,10 +121,10 @@ INSERT INTO showtimes (film_id, room_id, start_time, end_time) VALUES
 (1, 5, '2025-01-15 11:30:00', '2025-01-15 14:30:00'),  -- Avengers 11h30
 (1, 5, '2025-01-15 21:30:00', '2025-01-16 00:30:00');  -- Avengers 21h30
 
--- Tickets (booked tickets)
+-- Tickets (booked tickets of user id=3)
 INSERT INTO tickets (user_id, showtime_id, seat_id) VALUES
-(2, 1, 15),  -- user1 dat ve xem Avengers 9h CGV Room 1, ghe A5 (id=15)
-(2, 1, 16),  -- user1 dat ve xem Avengers 9h CGV Room 1, ghe A6 (id=16)
-(3, 2, 45),  -- user2 dat ve xem Avengers 14h CGV Room 1, ghe E5 (id=45)
-(4, 4, 22),  -- user3 dat ve xem The Conjuring 11h30 CGV Room 2, ghe C2 (id=122)
-(2, 6, 33);  -- user1 dat ve xem Mr. Bean 9h CGV Room 2, ghe D3 (id=133)
+(3, 1, 15),
+(3, 1, 16),
+(3, 2, 45),
+(3, 4, 22),
+(3, 6, 33);

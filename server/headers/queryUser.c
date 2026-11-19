@@ -1,229 +1,122 @@
+#include "queryUser.h"
+#include "data.h"
+#include "security_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "queryUser.h"
-#include "security_utils.h"
 
-#define LOGIN_SUCCESS_USER "1010"
-#define LOGIN_SUCCESS_MANAGER "1011"
-#define LOGIN_SUCCESS_ADMIN "1012"
-#define LOGIN_FAIL "2011"
-#define LOGIN_ALREADY "2101"
-#define LOGOUT_SUCCESS "1102"
-#define LOGOUT_FAIL "2103"
-#define REGISTER_SUCCESS "1101"
-#define REGISTER_FAIL "2102"
+int user_verify_login(MYSQL *db, const char *username, const char *password,
+                      unsigned long long *out_user_id, int *out_role_id) {
+    if (!db || !username || !password || !out_user_id || !out_role_id) return -1;
 
-void selectUser(MYSQL *connection, node* h, user x){
-    if (mysql_query(connection, "SELECT id, name, username, password, salt, role_id FROM users")) {
-        fprintf(stderr, "selectUser query error: %s\n", mysql_error(connection));
-        return;
-    }
-    MYSQL_RES *result = mysql_store_result(connection);
-    if (!result) {
-        return;
-    }
-    MYSQL_ROW row;
-    while ((row = mysql_fetch_row(result))) {
-        x.id = strtoul(row[0], NULL, 10);
-        strcpy(x.name, row[1]);
-        strcpy(x.username, row[2]);
-        strcpy(x.password, row[3]);
-        strcpy(x.salt, (row[4] != NULL) ? row[4] : "");
-        x.role_id = strtoul(row[5], NULL, 10);
-
-        addNode(h, x);
+    const char *sql = "SELECT id, password, salt, role_id FROM users WHERE BINARY username = ?";
+    StmtRows *rows = stmt_select(db, sql, "s", username);
+    if (!rows) return -1;
+    if (rows->count == 0) {
+        free_stmt_rows(rows);
+        return 1; /* User not found */
     }
 
-    mysql_free_result(result);
-}
-
-listLoginedAccount createListLoginedAccount() {
-    listLoginedAccount arr;
-    arr.data = malloc(INITIAL_CAPACITY * sizeof(char *));
-    arr.size = 0;
-    arr.capacity = INITIAL_CAPACITY;
-    return arr;
-}
-
-void addToListLoginedAccount(listLoginedAccount *arr, char **value) {
-    if (arr->size >= arr->capacity) {
-        arr->capacity += INCREMENT;
-        arr->data = realloc(arr->data, arr->capacity * sizeof(char *));
-    }
-    arr->data[arr->size] = malloc((strlen(*value) + 1) * sizeof(char));
-    strcpy(arr->data[arr->size], *value);
-    arr->size++;
-}
-
-void freeListLoginedAccount(listLoginedAccount *arr) {
-    for (size_t i = 0; i < arr->size; i++) {
-        free(arr->data[i]);
-    }
-    free(arr->data);
-    arr->size = 0;
-    arr->capacity = 0;
-}
-
-int searchListLoginedAccount(const listLoginedAccount *arr, char **value) {
-    for (size_t i = 0; i < arr->size; i++) {
-        if (strcmp(arr->data[i], *value) == 0) {
-            return i; 
-        }
-    }
-    return -1; 
-}
-
-void deleteFromListLoginedAccount(listLoginedAccount *arr, char **value) {
-    int index = searchListLoginedAccount(arr, value);
-
-    if (index != -1) {
-        free(arr->data[index]);  
-        arr->data[index] = arr->data[arr->size - 1];  
-        arr->size--;
-    }
-}
-
-listLoginedAccount createListLoginedUser(listLoginedAccount arr){
-    freeListLoginedAccount(&arr);
-    arr = createListLoginedAccount();
-    return arr;
-}
-
-int checkLogin(node head, char **username, char *password, listLoginedAccount *arr){
-    int check_logined = searchListLoginedAccount(arr, username);
-    printf("%d\n", check_logined);
-    if(check_logined >= 0){
-        return 3;
-    }
-
-    struct Node* p = head;
-    while(p != NULL){
-        if (strcmp(*username, p->data.username) == 0) {
-            int matched = 0;
-            if (strlen(p->data.salt) > 0) {
-                matched = verify_password(password, p->data.salt, p->data.password);
-            } else {
-                matched = (strcmp(password, p->data.password) == 0);
-            }
-
-            if (matched) {
-                if(p->data.role_id == 0){
-                    printf("%s\n", LOGIN_SUCCESS_ADMIN);
-                    return 0; 
-                }else if(p->data.role_id == 1){
-                    printf("%s\n", LOGIN_SUCCESS_MANAGER);
-                    return 1;
-                }else if(p->data.role_id == 2){
-                    printf("%s\n", LOGIN_SUCCESS_USER);
-                    return 2;
-                }            
-            }
-        }
-        p = p->next;
-    }
-
-    printf("%s\n", LOGIN_FAIL);
-    return -1;
-}
-
-int registerUser(MYSQL *connection, user newUser) {
-    char query[1024];
-
-    if (strlen(newUser.username) == 0 || strlen(newUser.name) == 0 || strlen(newUser.password) == 0) {
-        printf("Registration failed: Empty fields\n");
-        return 0;
-    }
-
-    sprintf(query, "SELECT username FROM users WHERE username = '%s'", newUser.username);
-    if (mysql_query(connection, query)) {
-        fprintf(stderr, "Register check query error: %s\n", mysql_error(connection));
-        return 0;
-    }
-    MYSQL_RES *result = mysql_store_result(connection);
-    if (!result) return 0;
-    if (mysql_num_rows(result) > 0) {
-        mysql_free_result(result);
-        printf("Registration failed: Username '%s' already exists\n", newUser.username);
-        return 0;
-    }
-    mysql_free_result(result);
-
-    /* Băm mật khẩu với salt ngẫu nhiên trước khi lưu DB */
-    char salt[SALT_HEX_LEN] = {0};
-    char hashed_pwd[HASH_HEX_LEN] = {0};
-    generate_salt(salt, sizeof(salt));
-    hash_password(newUser.password, salt, hashed_pwd);
-
-    sprintf(query, "INSERT INTO users (name, username, password, salt, role_id) VALUES ('%s','%s', '%s', '%s', %ld)",
-            newUser.name, newUser.username, hashed_pwd, salt, newUser.role_id);
-    if (mysql_query(connection, query)) {
-        fprintf(stderr, "Register Error: %s\n", mysql_error(connection));
-        return 0;
-    } else {
-        printf("Registration successful: User '%s' created\n", newUser.username);
-        return 1;
-    }
-}
-
-int changePassword(MYSQL *connection, char *username, char *oldPassword, char *newPassword) {
-    char query[1024];
-    sprintf(query, "SELECT password, salt FROM users WHERE username = '%s'", username);
-    if (mysql_query(connection, query)) {
-        return 0;
-    }
-    MYSQL_RES *result = mysql_store_result(connection);
-    if (!result) return 0;
-
-    MYSQL_ROW row = mysql_fetch_row(result);
-    if (!row) {
-        mysql_free_result(result);
-        return 0;
-    }
-
-    const char *stored_hash = row[0];
-    const char *stored_salt = (row[1] != NULL) ? row[1] : "";
+    char *id_str = rows->data[0][0];
+    char *stored_hash = rows->data[0][1];
+    char *stored_salt = rows->data[0][2];
+    char *role_str = rows->data[0][3];
 
     int verified = 0;
-    if (strlen(stored_salt) > 0) {
-        verified = verify_password(oldPassword, stored_salt, stored_hash);
+    if (stored_salt && strlen(stored_salt) > 0) {
+        verified = verify_password(password, stored_salt, stored_hash);
     } else {
-        verified = (strcmp(stored_hash, oldPassword) == 0);
+        /* Fallback cho tài khoản chưa có salt (backward compatibility) */
+        verified = (strcmp(stored_hash, password) == 0);
     }
 
     if (!verified) {
-        mysql_free_result(result);
+        free_stmt_rows(rows);
+        return 1; /* Password incorrect */
+    }
+
+    *out_user_id = strtoull(id_str, NULL, 10);
+    *out_role_id = atoi(role_str);
+    free_stmt_rows(rows);
+    return 0;
+}
+
+int user_register(MYSQL *db, const char *name, const char *username, const char *password, int role_id) {
+    if (!db || !name || !username || !password) return -1;
+
+    int exists = 0;
+    if (stmt_get_int(db, &exists, "SELECT COUNT(*) FROM users WHERE username = ?", "s", username) != 0) {
+        return -1;
+    }
+    if (exists > 0) {
+        return 0; /* Username already exists */
+    }
+
+    char salt[SALT_HEX_LEN] = {0};
+    char hash[HASH_HEX_LEN] = {0};
+    generate_salt(salt, sizeof(salt));
+    hash_password(password, salt, hash);
+
+    const char *sql = "INSERT INTO users (name, username, password, salt, role_id, balance) VALUES (?, ?, ?, ?, ?, 500000.00)";
+    int affected = stmt_execute(db, sql, "ssssi", name, username, hash, salt, role_id);
+    return (affected == 1) ? 1 : -1;
+}
+
+int user_change_password(MYSQL *db, unsigned long long user_id,
+                         const char *old_password, const char *new_password) {
+    if (!db || !old_password || !new_password) return -1;
+
+    const char *sel_sql = "SELECT password, salt FROM users WHERE id = ?";
+    StmtRows *rows = stmt_select(db, sel_sql, "u", user_id);
+    if (!rows) return -1;
+    if (rows->count == 0) {
+        free_stmt_rows(rows);
         return 0;
     }
-    mysql_free_result(result);
 
-    /* Sinh salt mới và băm mật khẩu mới */
+    char *stored_hash = rows->data[0][0];
+    char *stored_salt = rows->data[0][2];
+
+    int verified = 0;
+    if (stored_salt && strlen(stored_salt) > 0) {
+        verified = verify_password(old_password, stored_salt, stored_hash);
+    } else {
+        verified = (strcmp(stored_hash, old_password) == 0);
+    }
+    free_stmt_rows(rows);
+
+    if (!verified) {
+        return 0; /* Wrong old password */
+    }
+
     char new_salt[SALT_HEX_LEN] = {0};
     char new_hash[HASH_HEX_LEN] = {0};
     generate_salt(new_salt, sizeof(new_salt));
-    hash_password(newPassword, new_salt, new_hash);
+    hash_password(new_password, new_salt, new_hash);
 
-    sprintf(query, "UPDATE users SET password = '%s', salt = '%s' WHERE username = '%s'",
-            new_hash, new_salt, username);
-    if (mysql_query(connection, query)) {
-        return 0;
-    }
-
-    return 1;
+    const char *upd_sql = "UPDATE users SET password = ?, salt = ? WHERE id = ?";
+    int affected = stmt_execute(db, upd_sql, "ssu", new_hash, new_salt, user_id);
+    return (affected == 1) ? 1 : -1;
 }
 
-int getUserIdByUsername(MYSQL *conn, const char *username) {
-    char query[256];
-    sprintf(query, "SELECT id FROM users WHERE username='%s'", username);
+int user_get_role(MYSQL *db, unsigned long long user_id, int *out_role_id) {
+    if (!db || !out_role_id) return -1;
+    int role = -1;
+    if (stmt_get_int(db, &role, "SELECT role_id FROM users WHERE id = ?", "u", user_id) != 0) {
+        return -1;
+    }
+    if (role >= 0 && role <= 2) {
+        *out_role_id = role;
+        return 0;
+    }
+    return -1;
+}
 
-    if (mysql_query(conn, query)) return -1;
-    MYSQL_RES *res = mysql_store_result(conn);
-    if (!res) return -1;
-
-    MYSQL_ROW row = mysql_fetch_row(res);
+int getUserIdByUsername(MYSQL *db, const char *username) {
+    if (!db || !username) return -1;
     int id = -1;
-    if (row) id = atoi(row[0]);
-
-    mysql_free_result(res);
+    if (stmt_get_int(db, &id, "SELECT id FROM users WHERE username = ?", "s", username) != 0) {
+        return -1;
+    }
     return id;
 }
