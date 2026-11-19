@@ -4,7 +4,7 @@
 #include "../server/headers/security_utils.h"
 
 int main(void) {
-    printf("=== RUNNING UNIT TEST: SECURITY_UTILS (SHA-256 + SALT) ===\n");
+    printf("=== RUNNING UNIT TEST: SECURITY_UTILS (OpenSSL PKCS5_PBKDF2_HMAC + SALT) ===\n");
 
     /* Test 1: Sinh Salt ngẫu nhiên */
     char salt1[SALT_HEX_LEN] = {0};
