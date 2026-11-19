@@ -17,10 +17,11 @@ static void* worker_task(void *arg) {
     WorkerArg *warg = (WorkerArg *)arg;
     warg->success = 0;
 
-    printf("[Thread %d] Dang yeu cau muon ket noi tu db_pool...\n", warg->thread_id);
-    MYSQL *conn = db_pool_acquire();
+    printf("[Thread %d] Dang yeu cau muon ket noi tu db_pool (timeout: %d ms)...\n",
+           warg->thread_id, DB_ACQUIRE_TIMEOUT_MS);
+    MYSQL *conn = db_pool_acquire(DB_ACQUIRE_TIMEOUT_MS);
     if (conn == NULL) {
-        printf("[Thread %d] Khong the muon ket noi (NULL)\n", warg->thread_id);
+        printf("[Thread %d] Khong the muon ket noi (timeout / NULL)\n", warg->thread_id);
         return NULL;
     }
 
@@ -37,8 +38,8 @@ static void* worker_task(void *arg) {
         warg->success = 1;
     }
 
-    /* Giữ kết nối một khoảng ngắn để kiểm tra tính đồng thời */
-    usleep(50000); // 50ms
+    /* Giữ kết nối một khoảng ngắn (50ms) để kiểm tra tính đồng thời */
+    usleep(50000);
 
     printf("[Thread %d] -> Tra ket noi ve pool (%p)\n", warg->thread_id, (void*)conn);
     db_pool_release(conn);
@@ -47,7 +48,7 @@ static void* worker_task(void *arg) {
 }
 
 int main(void) {
-    printf("=== RUNNING UNIT TEST: DB_POOL (10 CONNECTIONS & CONCURRENCY) ===\n");
+    printf("=== RUNNING UNIT TEST: DB_POOL (10 CONNECTIONS & TIMEOUT 2000ms) ===\n");
 
     const char *host = "localhost";
     const char *user = "root";
@@ -61,18 +62,19 @@ int main(void) {
     if (init_res != 0) {
         printf("(!) Khong the ket noi toi MySQL Server cuc bo (server offline hoac sai password).\n");
         printf("    -> Kiem tra tinh an toan cua db_pool khi khong co CSDL:\n");
-        assert(db_pool_acquire() == NULL);
+        assert(db_pool_acquire(2000) == NULL);
+        assert(db_pool_acquire_timeout(100) == NULL);
         db_pool_release(NULL);
         db_pool_destroy();
-        printf("--> PASS: db_pool xu ly loi ket noi an toan, khong lam sap chuong trinh!\n\n");
+        printf("--> PASS: db_pool xu ly loi ket noi an toan, timeout hop le, khong crash!\n\n");
         printf("=== TEST HOAN TAT (Offline mode PASS) ===\n");
         return 0;
     }
 
     printf("✓ Khoi tao thanh cong %d ket noi trong pool!\n\n", pool_size);
 
-    /* Test 2: Khoi chay 12 luong dong thoi (vuot qua dung luong 10 de kiem tra hang doi cond_wait) */
-    printf("[2] Khoi chay %d luong dong thoi mượn va tra ket noi tu pool...\n", NUM_THREADS);
+    /* Test 2: Khoi chay 12 luong dong thoi (vuot qua dung luong 10 de kiem tra hang doi cond_timedwait) */
+    printf("[2] Khoi chay %d luong dong thoi muon va tra ket noi tu pool...\n", NUM_THREADS);
     pthread_t threads[NUM_THREADS];
     WorkerArg args[NUM_THREADS];
 
@@ -88,10 +90,29 @@ int main(void) {
     }
     printf("--> PASS: Ca %d luong da muon va tra ket noi thanh cong, khong deadlock!\n\n", NUM_THREADS);
 
-    /* Test 3: Dong toan bo pool */
-    printf("[3] Goi db_pool_destroy()...\n");
+    /* Test 3: Kiem tra co che timeout khi het ket noi */
+    printf("[3] Kiem tra timeout khi giu toan bo 10 ket noi...\n");
+    MYSQL *held_conns[10];
+    for (int i = 0; i < 10; i++) {
+        held_conns[i] = db_pool_acquire(1000);
+        assert(held_conns[i] != NULL);
+    }
+
+    /* Thu muon ket noi thu 11 voi timeout 300ms -> phai tra ve NULL */
+    printf("    -> Yeu cau ket noi thu 11 voi timeout 300ms (ky vong tra ve NULL)...\n");
+    MYSQL *timed_out_conn = db_pool_acquire(300);
+    assert(timed_out_conn == NULL);
+    printf("--> PASS: Timeout thanh cong (tra ve NULL sau 300ms)!\n\n");
+
+    /* Tra lai 10 ket noi */
+    for (int i = 0; i < 10; i++) {
+        db_pool_release(held_conns[i]);
+    }
+
+    /* Test 4: Dong toan bo pool */
+    printf("[4] Goi db_pool_destroy()...\n");
     db_pool_destroy();
-    assert(db_pool_acquire() == NULL);
+    assert(db_pool_acquire(100) == NULL);
     printf("--> PASS: db_pool_destroy thu hoi toan bo ket noi an toan!\n\n");
 
     printf("=== TAT CA TESTS DB_POOL DEU PASS 100%% ===\n");

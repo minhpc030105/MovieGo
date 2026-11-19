@@ -16,6 +16,7 @@
 #include <pthread.h>
 
 #define DEFAULT_DB_POOL_SIZE 10
+#define DB_ACQUIRE_TIMEOUT_MS 2000
 
 /**
  * @brief Khởi tạo pool kết nối MySQL
@@ -29,15 +30,22 @@
 int db_pool_init(const char *host, const char *user, const char *pass, const char *db, int pool_size);
 
 /**
- * @brief Mượn 1 kết nối MySQL từ pool (chờ nếu đang hết kết nối)
+ * @brief Mượn 1 kết nối MySQL từ pool có giới hạn thời gian chờ (pthread_cond_timedwait)
+ * @param timeout_ms Thời gian chờ tối đa bằng mili-giây (ví dụ: 2000ms; truyền 0 để dùng mặc định 2000ms)
  * @note Tự động kiểm tra mysql_ping() để reconnect nếu kết nối bị đứt
- * @return Con trỏ MYSQL* hợp lệ, hoặc NULL nếu lỗi / pool đã bị hủy
+ * @return Con trỏ MYSQL* hợp lệ, hoặc NULL nếu quá thời gian chờ (để server trả SERVER_BUSY)
  */
-MYSQL* db_pool_acquire(void);
+MYSQL* db_pool_acquire(unsigned int timeout_ms);
 
 /**
- * @brief Trả kết nối MySQL về lại pool ngay sau khi query xong
+ * @brief Hàm tương đương db_pool_acquire có chỉ định timeout
+ */
+MYSQL* db_pool_acquire_timeout(unsigned int timeout_ms);
+
+/**
+ * @brief Trả kết nối MySQL về lại pool ngay sau khi query/transaction xong
  * @param conn Con trỏ kết nối đã mượn
+ * @note QUAN TRỌNG: Chỉ trả SAU KHI đã COMMIT hoặc ROLLBACK nếu là Transaction!
  */
 void db_pool_release(MYSQL *conn);
 

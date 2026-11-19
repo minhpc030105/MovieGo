@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/time.h>
 
 typedef struct {
     MYSQL *conn;
@@ -35,6 +38,23 @@ static DBPool g_pool = {
     .pass = {0},
     .db = {0}
 };
+
+static void get_timeout_timespec(unsigned int timeout_ms, struct timespec *ts) {
+#if defined(CLOCK_REALTIME)
+    clock_gettime(CLOCK_REALTIME, ts);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    ts->tv_sec = tv.tv_sec;
+    ts->tv_nsec = tv.tv_usec * 1000L;
+#endif
+    ts->tv_sec += (time_t)(timeout_ms / 1000);
+    ts->tv_nsec += (long)((timeout_ms % 1000) * 1000000L);
+    if (ts->tv_nsec >= 1000000000L) {
+        ts->tv_sec += 1;
+        ts->tv_nsec -= 1000000000L;
+    }
+}
 
 /**
  * @brief Khởi tạo pool kết nối MySQL
@@ -119,9 +139,13 @@ int db_pool_init(const char *host, const char *user, const char *pass, const cha
 }
 
 /**
- * @brief Mượn 1 kết nối MySQL từ pool (chờ nếu đang hết kết nối)
+ * @brief Mượn 1 kết nối MySQL từ pool có timeout (dùng pthread_cond_timedwait)
  */
-MYSQL* db_pool_acquire(void) {
+MYSQL* db_pool_acquire(unsigned int timeout_ms) {
+    if (timeout_ms == 0) {
+        timeout_ms = DB_ACQUIRE_TIMEOUT_MS;
+    }
+
     pthread_mutex_lock(&g_pool.lock);
 
     if (!g_pool.is_initialized || g_pool.is_shutdown) {
@@ -129,12 +153,20 @@ MYSQL* db_pool_acquire(void) {
         return NULL;
     }
 
-    /* Chờ cho tới khi có ít nhất 1 kết nối rảnh hoặc pool bị đóng */
+    struct timespec ts;
+    get_timeout_timespec(timeout_ms, &ts);
+
+    /* Chờ cho tới khi có ít nhất 1 kết nối rảnh, hoặc hết thời gian timeout, hoặc pool bị đóng */
     while (g_pool.available_count == 0 && !g_pool.is_shutdown) {
-        pthread_cond_wait(&g_pool.cond, &g_pool.lock);
+        int rc = pthread_cond_timedwait(&g_pool.cond, &g_pool.lock, &ts);
+        if (rc == ETIMEDOUT) {
+            /* Quá thời gian timeout chờ kết nối (mặc định 2000ms) -> trả NULL để server trả SERVER_BUSY */
+            pthread_mutex_unlock(&g_pool.lock);
+            return NULL;
+        }
     }
 
-    if (g_pool.is_shutdown) {
+    if (g_pool.is_shutdown || g_pool.available_count == 0) {
         pthread_mutex_unlock(&g_pool.lock);
         return NULL;
     }
@@ -189,6 +221,10 @@ MYSQL* db_pool_acquire(void) {
     }
 
     return conn;
+}
+
+MYSQL* db_pool_acquire_timeout(unsigned int timeout_ms) {
+    return db_pool_acquire(timeout_ms);
 }
 
 /**
