@@ -8,7 +8,8 @@ CREATE TABLE users (
     username varchar(255) NOT NULL,
     password varchar(255) NOT NULL,
     salt varchar(64) DEFAULT '',
-    role_id bigint(20) NOT NULL
+    role_id bigint(20) NOT NULL,
+    balance decimal(12,2) NOT NULL DEFAULT 500000.00
 );
 
 

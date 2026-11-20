@@ -54,4 +54,10 @@ void db_pool_release(MYSQL *conn);
  */
 void db_pool_destroy(void);
 
+/**
+ * @brief Lấy số lượng kết nối rảnh hiện tại trong pool (thread-safe)
+ * @return Số kết nối rảnh (0 đến capacity)
+ */
+int db_pool_available_count(void);
+
 #endif // DB_POOL_H

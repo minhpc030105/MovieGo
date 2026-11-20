@@ -110,7 +110,7 @@ int db_pool_init(const char *host, const char *user, const char *pass, const cha
         bool reconnect = 1;
         mysql_options(conn, MYSQL_OPT_RECONNECT, &reconnect);
 
-        if (mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0) == NULL) {
+        if (mysql_real_connect(conn, host, user, pass, db, 0, getenv("MYSQL_UNIX_PORT"), 0) == NULL) {
             fprintf(stderr, "db_pool_init error: connect to database '%s' failed at index %d: %s\n",
                     db, i, mysql_error(conn));
             mysql_close(conn);
@@ -189,16 +189,21 @@ MYSQL* db_pool_acquire(unsigned int timeout_ms) {
     MYSQL *conn = g_pool.connections[found_idx].conn;
     pthread_mutex_unlock(&g_pool.lock);
 
-    /* Kiểm tra tình trạng kết nối bằng mysql_ping() ngoài vùng khóa mutex */
+    /* Kiểm tra tình trạng kết nối bằng mysql_ping() hoặc nếu ô kết nối đang chứa NULL */
+    bool need_reconnect = (conn == NULL);
     if (conn != NULL && mysql_ping(conn) != 0) {
         fprintf(stderr, "db_pool_acquire: mysql_ping failed, reconnecting: %s\n", mysql_error(conn));
         mysql_close(conn);
+        conn = NULL;
+        need_reconnect = true;
+    }
 
+    if (need_reconnect) {
         MYSQL *new_conn = mysql_init(NULL);
         if (new_conn != NULL) {
             bool reconnect = 1;
             mysql_options(new_conn, MYSQL_OPT_RECONNECT, &reconnect);
-            if (mysql_real_connect(new_conn, g_pool.host, g_pool.user, g_pool.pass, g_pool.db, 0, NULL, 0) != NULL) {
+            if (mysql_real_connect(new_conn, g_pool.host, g_pool.user, g_pool.pass, g_pool.db, 0, getenv("MYSQL_UNIX_PORT"), 0) != NULL) {
                 conn = new_conn;
             } else {
                 fprintf(stderr, "db_pool_acquire: reconnect failed: %s\n", mysql_error(new_conn));
@@ -212,7 +217,7 @@ MYSQL* db_pool_acquire(unsigned int timeout_ms) {
         pthread_mutex_lock(&g_pool.lock);
         g_pool.connections[found_idx].conn = conn;
         if (conn == NULL) {
-            /* Nếu tái kết nối thất bại, giải phóng slot */
+            /* Nếu tái kết nối thất bại, giải phóng slot và tăng lại available_count để lần mượn tiếp theo có thể thử lại */
             g_pool.connections[found_idx].in_use = 0;
             g_pool.available_count++;
             pthread_cond_signal(&g_pool.cond);
@@ -225,6 +230,13 @@ MYSQL* db_pool_acquire(unsigned int timeout_ms) {
 
 MYSQL* db_pool_acquire_timeout(unsigned int timeout_ms) {
     return db_pool_acquire(timeout_ms);
+}
+
+int db_pool_available_count(void) {
+    pthread_mutex_lock(&g_pool.lock);
+    int count = g_pool.available_count;
+    pthread_mutex_unlock(&g_pool.lock);
+    return count;
 }
 
 /**

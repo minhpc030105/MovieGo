@@ -17,14 +17,27 @@ Một tài khoản chỉ đăng nhập được ở một nơi. Khi client ngắ
 
 Linux hoặc WSL2, GCC, MySQL Server 5.7+, `libmysqlclient-dev`.
 
-## Tạo database
+## Cài đặt Database
 
+### Cách 1: Khởi tạo toàn diện từ đầu (Khuyên dùng)
+```bash
+mysql -u root -p < db/booking_v2.sql
+```
+*(Lệnh này tự động tạo database `booking`, tạo toàn bộ 11 bảng chuẩn hóa và seed đầy đủ dữ liệu phòng, ghế, phim, suất chiếu cùng 3 tài khoản mẫu đã băm PBKDF2).*
+
+### Cách 2: Khởi tạo cơ bản
 ```bash
 mysql -u root -p < db/booking.sql
 mysql -u root -p booking < db/data.txt
 ```
 
-Bỏ qua bước này nếu máy đã có database `booking`. Thông tin kết nối nằm trong `db/connect.h`.
+### Cách 3: Nâng cấp database đã có dữ liệu (Giữ nguyên dữ liệu cũ)
+Nếu máy bạn đã có CSDL `booking` từ trước và muốn giữ nguyên dữ liệu:
+```bash
+mysql -u root -p booking < db/upgrade_v2.sql
+```
+
+Thông tin kết nối CSDL nằm trong `db/connect.h`.
 
 ## Biên dịch và chạy
 
@@ -35,4 +48,7 @@ make all
 ./client_out 127.0.0.1 8080
 ```
 
-Tài khoản mẫu: `user1 / pass123` (User), `manager / manager123` (Manager), `longmh / 123456` (Admin).
+Tài khoản mẫu (Mật khẩu mặc định: `123456`):
+- Admin: `admin` / `123456`
+- Manager: `manager` / `123456`
+- User: `user` / `123456` (Số dư ví ban đầu: 500.000đ)

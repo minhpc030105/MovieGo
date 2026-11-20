@@ -75,7 +75,7 @@ int user_change_password(MYSQL *db, unsigned long long user_id,
     }
 
     char *stored_hash = rows->data[0][0];
-    char *stored_salt = rows->data[0][2];
+    char *stored_salt = rows->data[0][1];
 
     int verified = 0;
     if (stored_salt && strlen(stored_salt) > 0) {

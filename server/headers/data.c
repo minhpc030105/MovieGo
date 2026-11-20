@@ -112,7 +112,7 @@ StmtRows *stmt_select(MYSQL *db, const char *sql, const char *types, ...) {
     MYSQL_BIND *out_binds = calloc(num_fields, sizeof(MYSQL_BIND));
     char **col_buffers = malloc(num_fields * sizeof(char *));
     unsigned long *col_lengths = malloc(num_fields * sizeof(unsigned long));
-    my_bool *is_null = malloc(num_fields * sizeof(my_bool));
+    mysql_bind_bool_t *is_null = malloc(num_fields * sizeof(mysql_bind_bool_t));
 
     for (unsigned int i = 0; i < num_fields; i++) {
         col_buffers[i] = malloc(MAX_COL_BUFFER);
@@ -223,7 +223,7 @@ int stmt_get_int(MYSQL *db, int *out_val, const char *sql, const char *types, ..
     }
 
     int val = 0;
-    my_bool is_null = 0;
+    mysql_bind_bool_t is_null = 0;
     MYSQL_BIND out_bind;
     memset(&out_bind, 0, sizeof(out_bind));
     out_bind.buffer_type = MYSQL_TYPE_LONG;
@@ -268,7 +268,7 @@ int stmt_get_string(MYSQL *db, char *out_buf, size_t buf_size, const char *sql, 
     }
 
     unsigned long len = 0;
-    my_bool is_null = 0;
+    mysql_bind_bool_t is_null = 0;
     MYSQL_BIND out_bind;
     memset(&out_bind, 0, sizeof(out_bind));
     out_bind.buffer_type = MYSQL_TYPE_STRING;

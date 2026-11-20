@@ -36,7 +36,7 @@ int main(void) {
     }
 
     /* Thu ket noi voi thong tin mac dinh */
-    if (!mysql_real_connect(conn, "127.0.0.1", "root", "123456", "booking", 0, NULL, 0)) {
+    if (!mysql_real_connect(conn, "127.0.0.1", "root", "123456", "booking", 0, getenv("MYSQL_UNIX_PORT"), 0)) {
         printf("(!) Khong the ket noi toi MySQL Server cuc bo (%s).\n", mysql_error(conn));
         printf("    -> Kiem tra tinh an toan va fallback khi khong co CSDL:\n");
         unsigned long long uid = 0;

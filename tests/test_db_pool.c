@@ -109,8 +109,30 @@ int main(void) {
         db_pool_release(held_conns[i]);
     }
 
-    /* Test 4: Dong toan bo pool */
-    printf("[4] Goi db_pool_destroy()...\n");
+    /* Kiem tra so ket noi ranh sau khi da tra du 10 */
+    assert(db_pool_available_count() == 10);
+    printf("--> PASS: Da tra du 10 ket noi, so ket noi ranh chinh xac la %d!\n\n", db_pool_available_count());
+
+    /* Test 4: Kiem tra co che tu dong ket noi lai khi gap loi ket noi hoac o chua NULL */
+    printf("[4] Kiem tra phuc hoi ket noi khi o chua NULL hoac socket bi dong dot ngot...\n");
+    MYSQL *bad_conn = db_pool_acquire(1000);
+    assert(bad_conn != NULL);
+    /* Chu dong dong socket de gay loi mysql_ping */
+    mysql_close(bad_conn);
+    db_pool_release(bad_conn);
+
+    /* Lan muon tiep theo phai phat hien ping loi / NULL va tu dong ket noi lai thanh cong */
+    MYSQL *recovered_conn = db_pool_acquire(2000);
+    assert(recovered_conn != NULL);
+    assert(mysql_query(recovered_conn, "SELECT 1") == 0);
+    MYSQL_RES *res = mysql_store_result(recovered_conn);
+    if (res) mysql_free_result(res);
+    db_pool_release(recovered_conn);
+    assert(db_pool_available_count() == 10);
+    printf("--> PASS: Tu dong phuc hoi ket noi loi/NULL thanh cong, pool giu nguyen 10 ket noi ranh!\n\n");
+
+    /* Test 5: Dong toan bo pool */
+    printf("[5] Goi db_pool_destroy()...\n");
     db_pool_destroy();
     assert(db_pool_acquire(100) == NULL);
     printf("--> PASS: db_pool_destroy thu hoi toan bo ket noi an toan!\n\n");

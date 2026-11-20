@@ -6,6 +6,17 @@
 #include <stdbool.h>
 #include <mysql/mysql.h>
 
+/* Kiểu tương thích với MYSQL_BIND.is_null trên cả MySQL 8.0/8.4 và MariaDB */
+#if defined(MYSQL_VERSION_ID) && MYSQL_VERSION_ID >= 80000 && !defined(MARIADB_BASE_VERSION)
+typedef bool mysql_bind_bool_t;
+#elif defined(LIBMARIADB) || defined(MARIADB_BASE_VERSION)
+typedef my_bool mysql_bind_bool_t;
+#elif defined(__GNUC__)
+typedef __typeof__(*((MYSQL_BIND *)0)->is_null) mysql_bind_bool_t;
+#else
+typedef bool mysql_bind_bool_t;
+#endif
+
 #define FIELD_LIMIT 255
 
 typedef struct EscapedField {
