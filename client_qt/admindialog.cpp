@@ -98,6 +98,7 @@ void AdminDialog::loadAllUsers()
     // Receive result code
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == SHOW_ALL_USERS_SUCCESS) {
         // Read user rows from this response.
@@ -177,6 +178,7 @@ void AdminDialog::onDeleteUserClicked()
         
         // Receive result
         int result = recvResult(sockfd);
+        if (showQtResponseCodeMessage(this, result)) return;
         
         if (result == DELETE_USER_SUCCESS) {
             QMessageBox::information(this, "Success", "User deleted successfully!");
@@ -231,6 +233,7 @@ void AdminDialog::onChangeUserRoleClicked()
         
         // Receive result
         int result = recvResult(sockfd);
+        if (showQtResponseCodeMessage(this, result)) return;
         
         if (result == UPDATE_USER_ROLE_SUCCESS) {
             QMessageBox::information(this, "Success", "User role changed successfully!");

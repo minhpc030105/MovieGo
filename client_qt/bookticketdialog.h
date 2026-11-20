@@ -6,6 +6,10 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QStackedWidget>
+#include <QMap>
+#include <QStringList>
+
+class QGridLayout;
 
 class BookTicketDialog : public QDialog
 {
@@ -28,6 +32,9 @@ private:
     void loadCinemas(const QString &filmId);
     void loadShowtimes(const QString &filmId, const QString &cinemaId);
     void loadSeats(const QString &showtimeId);
+    void resetSeatGrid();
+    void updateSelectedSeatsLabel();
+    void toggleSeatSelection(const QString &seatLabel);
     
     int sockfd;
     
@@ -52,9 +59,13 @@ private:
     
     // Step 4: Select Seat
     QWidget *seatPage;
-    QListWidget *seatListWidget;
+    QGridLayout *seatGridLayout;
+    QLabel *selectedSeatsLabel;
     QPushButton *selectSeatBtn;
     QPushButton *backFromSeatBtn;
+    QMap<QString, QPushButton *> seatButtons;
+    QStringList selectedSeatIds;
+    QStringList selectedSeatLabels;
     
     // Step 5: Confirmation
     QWidget *confirmPage;
@@ -65,7 +76,6 @@ private:
     QString selectedFilmId;
     QString selectedCinemaId;
     QString selectedShowtimeId;
-    QString selectedSeatId;
 };
 
 #endif

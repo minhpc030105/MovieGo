@@ -11,6 +11,7 @@
 #include "responsecodes.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QTimer>
 
 extern "C" {
     #include "../lib/socket/socket.h"
@@ -18,7 +19,9 @@ extern "C" {
 }
 
 MainWindow::MainWindow(int sockfd, QWidget *parent)
-    : QMainWindow(parent), sockfd(sockfd), isLoggedIn(false)
+    : QMainWindow(parent), sockfd(sockfd), isLoggedIn(false),
+      pingUnsupportedLogged(false),
+      pingTimer(new QTimer(this))
 {
     setWindowTitle("MovieGo Client");
     setMinimumSize(500, 400);
@@ -112,6 +115,10 @@ MainWindow::MainWindow(int sockfd, QWidget *parent)
     connect(searchFilmBtn, &QPushButton::clicked, this, &MainWindow::onSearchFilmClicked);
     connect(bookTicketBtn, &QPushButton::clicked, this, &MainWindow::onBookTicketClicked);
     connect(viewTicketsBtn, &QPushButton::clicked, this, &MainWindow::onViewTicketsClicked);
+
+    pingTimer->setInterval(60000);
+    connect(pingTimer, &QTimer::timeout, this, &MainWindow::onPingTimeout);
+    pingTimer->start();
     
     // Show welcome page
     showWelcomeScreen();
@@ -119,6 +126,7 @@ MainWindow::MainWindow(int sockfd, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    pingTimer->stop();
 }
 
 void MainWindow::showWelcomeScreen()
@@ -152,7 +160,8 @@ void MainWindow::onLoginClicked()
             AdminDialog adminDialog(sockfd, username, this);
             adminDialog.exec();
             sendMessage(sockfd, "LOGOUT");
-            recvResult(sockfd);
+            int result = recvResult(sockfd);
+            if (showQtResponseCodeMessage(this, result)) return;
             
             // After admin dialog closes, return to welcome screen
             statusLabel->setText("");
@@ -162,7 +171,8 @@ void MainWindow::onLoginClicked()
             ManagerDialog managerDialog(sockfd, username, this);
             managerDialog.exec();
             sendMessage(sockfd, "LOGOUT");
-            recvResult(sockfd);
+            int result = recvResult(sockfd);
+            if (showQtResponseCodeMessage(this, result)) return;
             
             // After manager dialog closes, return to welcome screen
             statusLabel->setText("");
@@ -192,7 +202,9 @@ void MainWindow::onLogoutClicked()
     
     // Receive response
     int result = recvResult(sockfd);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result == LOGOUT_SUCCESS) {
+        isLoggedIn = false;
         QMessageBox::information(this, "Logout", "Logged out successfully!");
         statusLabel->setText("");
         showWelcomeScreen();
@@ -234,4 +246,33 @@ void MainWindow::onViewTicketsClicked()
 {
     ViewTicketsDialog dialog(sockfd, currentUsername, this);
     dialog.exec();
+}
+
+void MainWindow::onPingTimeout()
+{
+    if (!isLoggedIn || sockfd < 0) {
+        return;
+    }
+
+    // Keep socket I/O on the UI thread; all other client requests share it synchronously.
+    if (sendMessage(sockfd, "PING\r\n") < 0) {
+        pingTimer->stop();
+        qWarning("Failed to send PING; keepalive has been stopped.");
+        return;
+    }
+
+    const int responseCode = recvResult(sockfd);
+    if (responseCode < 0) {
+        pingTimer->stop();
+        qWarning("Failed to receive PING response; keepalive has been stopped.");
+        return;
+    }
+
+    if (responseCode == INVALID_REQUEST) {
+        pingTimer->stop();
+        if (!pingUnsupportedLogged) {
+            pingUnsupportedLogged = true;
+            qWarning("Server returned INVALID_REQUEST for PING; keepalive is not supported.");
+        }
+    }
 }

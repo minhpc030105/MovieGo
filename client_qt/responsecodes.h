@@ -1,6 +1,9 @@
 #ifndef RESPONSECODES_H
 #define RESPONSECODES_H
 
+#include <QMessageBox>
+#include <QWidget>
+
 // Success Codes (1xxx)
 #define LOGIN_SUCCESS_USER 1010
 #define LOGIN_SUCCESS_MANAGER 1011
@@ -67,6 +70,9 @@
 #define INVALID_REQUEST 3018
 #define INVALID_SHOWTIME 3019
 #define NO_SEATS_AVAILABLE 3020
+#define RESPONSE_TOO_LARGE 3030
+#define SERVER_BUSY 3031
+#define SEAT_TAKEN 3032
 
 // Add Showtime Validation
 #define INVALID_FILM_ID 3021
@@ -84,5 +90,25 @@
 #define REGISTER_FAIL_MESSAGE "Username has been existed!"
 #define CHANGE_PASSWORD_SUCCESS_MESSAGE "Changed password successfully!"
 #define CHANGE_PASSWORD_FAIL_MESSAGE "Changed password failed!"
+
+inline bool showQtResponseCodeMessage(QWidget *parent, int result)
+{
+    switch (result) {
+    case RESPONSE_TOO_LARGE:
+        QMessageBox::warning(parent, "Response Too Large",
+                             "The server response is too large to display.");
+        return true;
+    case SERVER_BUSY:
+        QMessageBox::warning(parent, "Server Busy",
+                             "The server is busy. Please try again shortly.");
+        return true;
+    case SEAT_TAKEN:
+        QMessageBox::warning(parent, "Seat Unavailable",
+                             "This seat was just booked. Please choose another seat.");
+        return true;
+    default:
+        return false;
+    }
+}
 
 #endif // RESPONSECODES_H
