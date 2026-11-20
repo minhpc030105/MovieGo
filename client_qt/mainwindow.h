@@ -9,6 +9,8 @@
 #include <QMessageBox>
 #include "../client/headers/menu.h"
 
+class QTimer;
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -45,6 +47,7 @@ private slots:
     void onSearchFilmClicked();
     void onBookTicketClicked();
     void onViewTicketsClicked();
+    void onPingTimeout();
 
 private:
     QStackedWidget *stackedWidget;
@@ -68,6 +71,8 @@ private:
     int sockfd;
     QString currentUsername;
     bool isLoggedIn;
+    bool pingUnsupportedLogged;
+    QTimer *pingTimer;
 };
 
 #endif

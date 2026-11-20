@@ -79,6 +79,7 @@ void LoginDialog::onLoginClicked()
     // Receive response
     int result = recvResult(sockfd);
     loginResult = result;
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == LOGIN_SUCCESS_USER || result == LOGIN_SUCCESS_MANAGER || result == LOGIN_SUCCESS_ADMIN) {
         username = user;

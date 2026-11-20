@@ -139,6 +139,7 @@ void AddShowTimeDialog::loadFilms()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result != FIND_FILM_SUCCESS && result != NO_FILMS) {
         QMessageBox::warning(this, "Error", "Failed to load films!");
         return;
@@ -177,6 +178,7 @@ void AddShowTimeDialog::loadCinemas()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
         QMessageBox::warning(this, "Error", "Failed to load cinemas!");
         return;
@@ -219,6 +221,7 @@ void AddShowTimeDialog::loadRooms(const QString &cinemaId)
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result == INVALID_CINEMA) {
         QMessageBox::warning(this, "Error", "Invalid cinema ID!");
         return;
@@ -265,6 +268,7 @@ void AddShowTimeDialog::loadShowtimes(const QString &roomId)
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result == SHOW_TIME_FAIL) {
         int row = showtimeTable->rowCount();
         showtimeTable->insertRow(row);
@@ -403,6 +407,7 @@ void AddShowTimeDialog::onAddShowTimeClicked()
     
     // Receive response
     int result = recvResult(sockfd);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     qDebug() << "Server response code:" << result;
     

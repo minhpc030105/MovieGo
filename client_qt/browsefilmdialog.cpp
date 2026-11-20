@@ -58,13 +58,15 @@ void BrowseFilmDialog::setupUI()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
-    if (result != SHOW_CATEGORY_SUCCESS && result != NO_CATEGORIES) {
-        QMessageBox::warning(this, "Error", "Failed to load categories!");
-    } else if (result == NO_CATEGORIES) {
-        QMessageBox::information(this, "Info", "No categories available!");
-    } else {
-        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
-            categoryListWidget->addItem(QString::fromUtf8(row_text));
+    if (!showQtResponseCodeMessage(this, result)) {
+        if (result != SHOW_CATEGORY_SUCCESS && result != NO_CATEGORIES) {
+            QMessageBox::warning(this, "Error", "Failed to load categories!");
+        } else if (result == NO_CATEGORIES) {
+            QMessageBox::information(this, "Info", "No categories available!");
+        } else {
+            for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+                categoryListWidget->addItem(QString::fromUtf8(row_text));
+            }
         }
     }
     
@@ -97,13 +99,15 @@ void BrowseFilmDialog::setupUI()
     sendMessage(sockfd, message);
     
     result = receive_response(sockfd, &reply);
-    if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
-        QMessageBox::warning(this, "Error", "Failed to load cinemas!");
-    } else if (result == NO_CINEMAS) {
-        QMessageBox::information(this, "Info", "No cinemas available!");
-    } else {
-        for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
-            cinemaListWidget->addItem(QString::fromUtf8(row_text));
+    if (!showQtResponseCodeMessage(this, result)) {
+        if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
+            QMessageBox::warning(this, "Error", "Failed to load cinemas!");
+        } else if (result == NO_CINEMAS) {
+            QMessageBox::information(this, "Info", "No cinemas available!");
+        } else {
+            for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
+                cinemaListWidget->addItem(QString::fromUtf8(row_text));
+            }
         }
     }
     
@@ -147,6 +151,7 @@ void BrowseFilmDialog::onBrowseByCategory()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     filmByCategoryListWidget->clear();
     
     if (result == BROWSE_CATEGORY_SUCCESS) {
@@ -181,6 +186,7 @@ void BrowseFilmDialog::onBrowseByCinema()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     filmByCinemaListWidget->clear();
     
     if (result == BROWSE_THEATER_SUCCESS) {

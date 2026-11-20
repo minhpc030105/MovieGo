@@ -1,6 +1,8 @@
 #include "bookticketdialog.h"
 #include "responsecodes.h"
+#include <QByteArray>
 #include <QVBoxLayout>
+#include <QGridLayout>
 #include <QMessageBox>
 
 extern "C" {
@@ -96,7 +98,36 @@ void BookTicketDialog::setupUI()
     seatLabel->setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;");
     seatLabel->setAlignment(Qt::AlignCenter);
     
-    seatListWidget = new QListWidget(seatPage);
+    seatGridLayout = new QGridLayout();
+    seatGridLayout->addWidget(new QLabel("", seatPage), 0, 0);
+    for (int column = 1; column <= 10; ++column) {
+        QLabel *columnLabel = new QLabel(QString::number(column), seatPage);
+        columnLabel->setAlignment(Qt::AlignCenter);
+        seatGridLayout->addWidget(columnLabel, 0, column);
+    }
+    const QString rows = "ABCDE";
+    for (int row = 0; row < rows.size(); ++row) {
+        QLabel *rowLabel = new QLabel(QString(rows.at(row)), seatPage);
+        rowLabel->setAlignment(Qt::AlignCenter);
+        seatGridLayout->addWidget(rowLabel, row + 1, 0);
+        for (int column = 1; column <= 10; ++column) {
+            QString seatLabel = QString("%1-%2").arg(rows.at(row)).arg(column);
+            QPushButton *seatButton = new QPushButton(QString::number(column), seatPage);
+            seatButton->setProperty("seatLabel", seatLabel);
+            seatButton->setProperty("seatState", "BOOKED");
+            seatButton->setEnabled(false);
+            seatButton->setMinimumSize(40, 36);
+            seatButton->setStyleSheet("background-color: #f44336; color: white;");
+            seatGridLayout->addWidget(seatButton, row + 1, column);
+            seatButtons.insert(seatLabel, seatButton);
+            connect(seatButton, &QPushButton::clicked, this, [this, seatLabel]() {
+                toggleSeatSelection(seatLabel);
+            });
+        }
+    }
+
+    selectedSeatsLabel = new QLabel("Selected seats: none", seatPage);
+    selectedSeatsLabel->setAlignment(Qt::AlignCenter);
     
     QHBoxLayout *seatBtnLayout = new QHBoxLayout();
     backFromSeatBtn = new QPushButton("← Back", seatPage);
@@ -108,7 +139,8 @@ void BookTicketDialog::setupUI()
     seatBtnLayout->addWidget(selectSeatBtn);
     
     seatLayout->addWidget(seatLabel);
-    seatLayout->addWidget(seatListWidget);
+    seatLayout->addLayout(seatGridLayout);
+    seatLayout->addWidget(selectedSeatsLabel);
     seatLayout->addLayout(seatBtnLayout);
     
     // Add pages to stacked widget
@@ -137,6 +169,7 @@ void BookTicketDialog::loadFilms()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     filmListWidget->clear();
     
     if (result != FIND_FILM_SUCCESS && result != NO_FILMS) {
@@ -161,6 +194,7 @@ void BookTicketDialog::loadCinemas(const QString &filmId)
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     cinemaListWidget->clear();
     
     if (result != BROWSE_THEATER_SUCCESS && result != NO_CINEMAS) {
@@ -187,6 +221,7 @@ void BookTicketDialog::loadShowtimes(const QString &filmId, const QString &cinem
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     showtimeListWidget->clear();
     
     if (result != BROWSE_TIME_SUCCESS && result != NO_SHOWTIMES) {
@@ -205,13 +240,14 @@ void BookTicketDialog::loadShowtimes(const QString &filmId, const QString &cinem
 
 void BookTicketDialog::loadSeats(const QString &showtimeId)
 {
+    resetSeatGrid();
     char message[2048];
     sprintf(message, "SHOW_SEATS\r\n%s\r\n", showtimeId.toUtf8().constData());
     sendMessage(sockfd, message);
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
-    seatListWidget->clear();
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == INVALID_REQUEST || result == INVALID_SHOWTIME) {
         QMessageBox::warning(this, "Error", "Invalid showtime!");
@@ -227,29 +263,100 @@ void BookTicketDialog::loadSeats(const QString &showtimeId)
     }
     
     bool hasSeats = false;
+    bool malformedSeat = false;
     
     for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
         QString msg = QString::fromUtf8(row_text);
-        if (msg.startsWith("SEAT|")) {
-            hasSeats = true;
-            QStringList parts = msg.split("|");
-            if (parts.size() >= 3) {
-                QString display = QString("ID: %1  -  Seat: %2")
-                    .arg(parts[1].trimmed())
-                    .arg(parts[2].trimmed());
-                seatListWidget->addItem(display);
-            }
-        } else {
-            seatListWidget->addItem(msg);
+        QStringList parts = msg.split("|");
+        bool validId = false;
+        if (parts.size() != 3 || parts[0] != "SEAT") {
+            malformedSeat = true;
+            continue;
         }
+        parts[1].trimmed().toULongLong(&validId);
+        QStringList seatParts = parts[2].trimmed().split("-");
+        if (!validId || seatParts.size() != 2) {
+            malformedSeat = true;
+            continue;
+        }
+
+        int row = QString("ABCDE").indexOf(seatParts[0].trimmed());
+        bool validColumn = false;
+        int column = seatParts[1].trimmed().toInt(&validColumn);
+        QString seatLabel = QString("%1-%2").arg(seatParts[0].trimmed()).arg(column);
+        if (row < 0 || !validColumn || column < 1 || column > 10 ||
+            !seatButtons.contains(seatLabel)) {
+            continue;
+        }
+
+        QPushButton *button = seatButtons.value(seatLabel);
+        button->setProperty("seatId", parts[1].trimmed());
+        button->setProperty("seatState", "AVAILABLE");
+        button->setEnabled(true);
+        button->setStyleSheet("background-color: #eeeeee; color: black;");
+        hasSeats = true;
+    }
+
+    if (malformedSeat) {
+        resetSeatGrid();
+        QMessageBox::warning(this, "Error", "The server returned invalid seat data.");
+        return;
     }
     
     if (!hasSeats) {
-        seatListWidget->addItem("No available seats for this showtime!");
         selectSeatBtn->setEnabled(false);
     } else {
         selectSeatBtn->setEnabled(true);
     }
+}
+
+void BookTicketDialog::resetSeatGrid()
+{
+    selectedSeatIds.clear();
+    selectedSeatLabels.clear();
+    for (QPushButton *button : seatButtons) {
+        button->setProperty("seatId", QString());
+        button->setProperty("seatState", "BOOKED");
+        button->setEnabled(false);
+        button->setStyleSheet("background-color: #f44336; color: white;");
+    }
+    updateSelectedSeatsLabel();
+    selectSeatBtn->setEnabled(true);
+}
+
+void BookTicketDialog::updateSelectedSeatsLabel()
+{
+    selectedSeatsLabel->setText(selectedSeatLabels.isEmpty()
+        ? "Selected seats: none"
+        : "Selected seats: " + selectedSeatLabels.join(", "));
+}
+
+void BookTicketDialog::toggleSeatSelection(const QString &seatLabel)
+{
+    QPushButton *button = seatButtons.value(seatLabel, nullptr);
+    if (!button) return;
+
+    QString state = button->property("seatState").toString();
+    if (state == "AVAILABLE") {
+        if (selectedSeatIds.size() >= 10) {
+            QMessageBox::warning(this, "Seat Limit",
+                                 "You can select up to 10 seats.");
+            return;
+        }
+        selectedSeatIds.append(button->property("seatId").toString());
+        selectedSeatLabels.append(seatLabel);
+        button->setProperty("seatState", "SELECTED");
+        button->setStyleSheet("background-color: #4caf50; color: white;");
+    } else if (state == "SELECTED") {
+        int selectedIndex = selectedSeatLabels.indexOf(seatLabel);
+        if (selectedIndex >= 0) {
+            selectedSeatLabels.removeAt(selectedIndex);
+            selectedSeatIds.removeAt(selectedIndex);
+        }
+        button->setProperty("seatState", "AVAILABLE");
+        button->setStyleSheet("background-color: #eeeeee; color: black;");
+    }
+    updateSelectedSeatsLabel();
 }
 
 void BookTicketDialog::onSelectFilm()
@@ -308,28 +415,23 @@ void BookTicketDialog::onSelectShowtime()
 
 void BookTicketDialog::onBookTicket()
 {
-    QListWidgetItem *item = seatListWidget->currentItem();
-    if (!item) {
+    if (selectedSeatIds.isEmpty()) {
         QMessageBox::warning(this, "Warning", "Please select a seat!");
         return;
     }
-    
-    QString selectedText = item->text();
-    
-    QStringList parts = selectedText.split("-");
-    if (parts.isEmpty()) return;
-    
-    QString idPart = parts[0].trimmed();
-    QStringList idParts = idPart.split(":");
-    if (idParts.size() < 2) return;
-    
-    selectedSeatId = idParts[1].trimmed();
+
+    if (selectedSeatIds.size() > 1) {
+        QMessageBox::information(this, "Booking Not Available",
+                                 "The server does not support booking multiple seats yet. "
+                                 "Your selected seats are kept for the future booking flow.");
+        return;
+    }
     
     // Send booking request
     char message[2048];
-    sprintf(message, "BOOK_TICKET\r\n%s\r\n%s\r\n", 
-            selectedShowtimeId.toUtf8().constData(),
-            selectedSeatId.toUtf8().constData());
+    QByteArray showtimeId = selectedShowtimeId.toUtf8();
+    QByteArray seatId = selectedSeatIds.first().toUtf8();
+    makeBookTicketMessage(showtimeId.data(), seatId.data(), message);
     sendMessage(sockfd, message);
     
     int result = recvResult(sockfd);
@@ -337,6 +439,8 @@ void BookTicketDialog::onBookTicket()
     if (result == BOOK_TICKET_SUCCESS) {
         QMessageBox::information(this, "Success", "Ticket booked successfully!");
         accept();
+    } else if (showQtResponseCodeMessage(this, result)) {
+        return;
     } else {
         QMessageBox::critical(this, "Failed", "Booking failed! Seat may already be booked.");
     }
