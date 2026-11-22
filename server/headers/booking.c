@@ -2,24 +2,39 @@
 #include "cache.h"
 #include <stdlib.h>
 
+static const char *SEATS_SQL =
+    "SELECT s.id, s.row_name, s.seat_number, "
+    "  CASE WHEN t.id IS NOT NULL THEN 'BOOKED' "
+    "       WHEN h.seat_id IS NOT NULL THEN 'HELD' ELSE 'AVAILABLE' END "
+    "FROM showtimes st JOIN seats s ON s.room_id = st.room_id "
+    "LEFT JOIN tickets t ON t.showtime_id = st.id AND t.seat_id = s.id "
+    "LEFT JOIN (SELECT bs.seat_id FROM booking_seats bs "
+    "           JOIN bookings b ON b.id = bs.booking_id "
+    "           WHERE b.showtime_id = ? AND b.status = 'PENDING' AND b.expires_at > NOW()) h "
+    "  ON h.seat_id = s.id "
+    "WHERE st.id = ? ORDER BY s.row_name, LENGTH(s.seat_number), s.seat_number";
+
 int handle_show_seats(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
     Fields fields;
     if (!read_fields(payload, "i", &fields)) return INVALID_REQUEST;
-    ShowtimeCache *st = findShowtime(atoi(fields.value[0]));
-    if (!st) return INVALID_SHOWTIME;
+    int showtime_id = atoi(fields.value[0]), exists = 0;
+    if (stmt_get_int(session->db, &exists, "SELECT COUNT(*) FROM showtimes WHERE id = ?", "i", showtime_id) != 0)
+        return CANT_LOAD_SEATS;
+    if (!exists) return INVALID_SHOWTIME;
+
+    StmtRows *rows = stmt_select(session->db, SEATS_SQL, "ii", showtime_id, showtime_id);
+    if (!rows) return CANT_LOAD_SEATS;
     ResponseBody body = {resp_buf, buf_size, 0};
     int code = NO_SEATS_AVAILABLE;
-    pthread_mutex_lock(&st->lock);
-    for (int i = 0; i < st->seat_count; i++) {
-        Seat *s = &st->seats[i];
-        if (s->is_booked) continue;
-        if (!append_line(&body, "SEAT|%d|%s-%s", s->seat_id, s->row_name, s->seat_number)) {
+    for (int i = 0; i < rows->count; i++) {
+        if (strcmp(rows->data[i][3], "AVAILABLE") != 0) continue;
+        if (!append_line(&body, "SEAT|%s|%s-%s", rows->data[i][0], rows->data[i][1], rows->data[i][2])) {
             code = RESPONSE_TOO_LARGE;
             break;
         }
         code = VIEW_CHAIR_SUCCESS;
     }
-    pthread_mutex_unlock(&st->lock);
+    free_stmt_rows(rows);
     return code;
 }
 
