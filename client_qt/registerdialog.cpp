@@ -93,6 +93,7 @@ void RegisterDialog::onRegisterClicked()
     
     // Receive response
     int result = recvResult(sockfd);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == REGISTER_SUCCESS) {
         QMessageBox::information(this, "Success", REGISTER_SUCCESS_MESSAGE);

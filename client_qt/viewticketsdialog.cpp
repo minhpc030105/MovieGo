@@ -88,6 +88,7 @@ void ViewTicketsDialog::loadTickets()
     // Receive result code
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == NO_TICKETS) {
         statusLabel->setText("No tickets found.");

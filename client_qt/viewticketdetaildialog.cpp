@@ -86,6 +86,7 @@ void ViewTicketDetailDialog::loadTicketDetail()
     // Receive result code
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == TICKET_NOT_FOUND) {
         QMessageBox::warning(this, "Error", "Ticket not found!");

@@ -123,6 +123,7 @@ void ManagerDialog::showAddFilmDialog()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     if (result == SHOW_CATEGORY_SUCCESS) {
         for (char *row_text; (row_text = next_response_line(&reply)) != NULL;) {
             QString line = QString::fromUtf8(row_text).trimmed();
@@ -191,6 +192,7 @@ void ManagerDialog::showAddFilmDialog()
         sendMessage(sockfd, msg);
         
         int addResult = recvResult(sockfd);
+        if (showQtResponseCodeMessage(addDialog, addResult)) return;
         if (addResult == ADD_FILM_SUCCESS) {
             QMessageBox::information(addDialog, "Success", "Film added successfully!");
             addDialog->accept();

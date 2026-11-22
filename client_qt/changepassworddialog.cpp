@@ -90,6 +90,7 @@ void ChangePasswordDialog::onChangeClicked()
     
     // Receive response
     int result = recvResult(sockfd);
+    if (showQtResponseCodeMessage(this, result)) return;
     
     if (result == CHANGE_PASSWORD_SUCCESS) {
         QMessageBox::information(this, "Success", CHANGE_PASSWORD_SUCCESS_MESSAGE);

@@ -84,6 +84,7 @@ void SearchFilmDialog::onSearchClicked()
     
     MovieResponse reply;
     int result = receive_response(sockfd, &reply);
+    if (showQtResponseCodeMessage(this, result)) return;
     resultListWidget->clear();
     
     if (result == FIND_FILM_SUCCESS) {
