@@ -41,19 +41,12 @@ int handle_show_seats(Session *session, const char *payload, char *resp_buf, siz
 int handle_book_ticket(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
     Fields fields;
     if (!read_fields(payload, "ii", &fields)) return INVALID_REQUEST;
-    ShowtimeCache *st = findShowtime(atoi(fields.value[0]));
-    if (!st) return BOOK_TICKET_FAIL;
-    pthread_mutex_lock(&st->lock);
-    Seat *seat = findSeat(st, atoi(fields.value[1]));
-    bool booked = seat && !seat->is_booked && execute_update(session->db,
-        "INSERT INTO tickets(user_id,showtime_id,seat_id) VALUES(%llu,%d,%d)",
-        session->user_id, st->showtime_id, seat->seat_id);
-    if (booked) {
-        seat->is_booked = 1;
-        seat->user_id = session->user_id;
-    }
-    pthread_mutex_unlock(&st->lock);
-    return booked ? BOOK_TICKET_SUCCESS : BOOK_TICKET_FAIL;
+    int n = stmt_execute(session->db,
+        "INSERT INTO tickets (user_id, showtime_id, seat_id) "
+        "SELECT ?, st.id, s.id FROM showtimes st JOIN seats s ON s.room_id = st.room_id "
+        "WHERE st.id = ? AND s.id = ?",
+        "uii", session->user_id, atoi(fields.value[0]), atoi(fields.value[1]));
+    return n == 1 ? BOOK_TICKET_SUCCESS : BOOK_TICKET_FAIL;
 }
 
 int handle_view_tickets(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
