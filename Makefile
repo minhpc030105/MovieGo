@@ -29,7 +29,6 @@ SRC_SERVER = server/server.c \
              server/headers/booking.c \
              server/headers/payment.c \
              server/headers/admin.c \
-             server/headers/cache.c \
              server/headers/security_utils.c \
              server/headers/db_pool.c \
              server/headers/logger.c \
