@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include "../db/connect.h"
 #include "../lib/socket/socket.h"
-#include "headers/cache.h"
 #include "headers/function.h"
 #include "headers/logger.h"
 
@@ -44,7 +43,6 @@ int main(int argc, char **argv) {
     MYSQL *db = NULL;
     connectDatabase(&db);
     if (!db) return 1;
-    initCache(db);
     mysql_close(db);
     initLogger();
 

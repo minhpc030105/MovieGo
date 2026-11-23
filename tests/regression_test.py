@@ -11,9 +11,9 @@ from uuid import uuid4
 
 MAX_FRAME = 65536
 ACCOUNTS = {
-    "USER": ("user1", "pass123", "1010"),
-    "MANAGER": (None, None, "1011"),
-    "ADMIN": (None, None, "1012"),
+    "USER": ("user", "123456", "1010"),
+    "MANAGER": ("manager", "123456", "1011"),
+    "ADMIN": ("admin", "123456", "1012"),
 }
 
 
