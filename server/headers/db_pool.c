@@ -106,11 +106,7 @@ int db_pool_init(const char *host, const char *user, const char *pass, const cha
             return -1;
         }
 
-        /* Bật tự động kết nối lại nếu phiên bản MySQL hỗ trợ */
-        bool reconnect = 1;
-        mysql_options(conn, MYSQL_OPT_RECONNECT, &reconnect);
-
-        if (mysql_real_connect(conn, host, user, pass, db, 0, getenv("MYSQL_UNIX_PORT"), 0) == NULL) {
+        if (mysql_real_connect(conn, host, user, pass, db, 0, getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) == NULL) {
             fprintf(stderr, "db_pool_init error: connect to database '%s' failed at index %d: %s\n",
                     db, i, mysql_error(conn));
             mysql_close(conn);
@@ -201,9 +197,7 @@ MYSQL* db_pool_acquire(unsigned int timeout_ms) {
     if (need_reconnect) {
         MYSQL *new_conn = mysql_init(NULL);
         if (new_conn != NULL) {
-            bool reconnect = 1;
-            mysql_options(new_conn, MYSQL_OPT_RECONNECT, &reconnect);
-            if (mysql_real_connect(new_conn, g_pool.host, g_pool.user, g_pool.pass, g_pool.db, 0, getenv("MYSQL_UNIX_PORT"), 0) != NULL) {
+            if (mysql_real_connect(new_conn, g_pool.host, g_pool.user, g_pool.pass, g_pool.db, 0, getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) != NULL) {
                 conn = new_conn;
             } else {
                 fprintf(stderr, "db_pool_acquire: reconnect failed: %s\n", mysql_error(new_conn));

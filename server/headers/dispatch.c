@@ -1,4 +1,5 @@
 #include "function.h"
+#include "db_pool.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -62,25 +63,33 @@ static bool split_request(char *request, char **payload) {
     return true;
 }
 
+static int run_db_command(Session *session, unsigned roles, Handler *handler,
+                          const char *payload, char *body, size_t size) {
+    if (session->is_auth) {
+        int error = refresh_role(session);
+        if (error) return error;
+        if (session->role_id < 0 || session->role_id > 2) return PERMISSION_DENIED;
+        if (!(roles & (1u << session->role_id)))
+            return handler == handle_login ? LOGIN_ALREADY : PERMISSION_DENIED;
+    }
+    return handler(session, payload, body, size);
+}
+
 static int route(Session *session, char *name, const char *payload, char *body, size_t size) {
     for (size_t i = 0; i < sizeof(command_table) / sizeof(command_table[0]); i++) {
         if (strcmp(name, command_table[i].name) != 0) continue;
-        if (session->is_auth && command_table[i].handler != handle_logout &&
-            command_table[i].handler != handle_exit) {
-            int error = refresh_role(session);
-            if (error) return error;
-        }
-        unsigned role = GUEST;
-        if (session->is_auth) {
-            if (session->role_id < 0 || session->role_id > 2) return PERMISSION_DENIED;
-            role = 1u << session->role_id;
-        }
-        if (!(role & command_table[i].roles)) {
-            if (!session->is_auth) return AUTH_REQUIRED;
-            if (command_table[i].handler == handle_login) return LOGIN_ALREADY;
-            return PERMISSION_DENIED;
-        }
-        return command_table[i].handler(session, payload, body, size);
+        unsigned roles = command_table[i].roles;
+        Handler *handler = command_table[i].handler;
+        if (!session->is_auth && !(roles & GUEST)) return AUTH_REQUIRED;
+        if (handler == handle_logout || handler == handle_exit)
+            return handler(session, payload, body, size);
+
+        session->db = db_pool_acquire(DB_ACQUIRE_TIMEOUT_MS);
+        if (!session->db) return SERVER_BUSY;
+        int code = run_db_command(session, roles, handler, payload, body, size);
+        db_pool_release(session->db);
+        session->db = NULL;
+        return code;
     }
     return INVALID_REQUEST;
 }

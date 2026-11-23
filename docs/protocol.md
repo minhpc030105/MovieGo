@@ -376,7 +376,7 @@ Tên mã từ `lib/resultCodes.h`. Cột **Used by** dựa trên dispatcher và 
 | 3028 | `AUTH_REQUIRED` | Dispatcher / refresh_role |
 | 3029 | `PERMISSION_DENIED` | Dispatcher |
 | 3030 | `RESPONSE_TOO_LARGE` | Handlers tạo danh sách hoặc chi tiết |
-| 3031 | `SERVER_BUSY` | Chưa phát qua handler đang chạy |
+| 3031 | `SERVER_BUSY` | Không mượn được kết nối CSDL. Pool có 10 kết nối, thời gian chờ khi hết kết nối là 2 giây. Client có thể gửi lại yêu cầu trên cùng socket. |
 | 3032 | `SEAT_TAKEN` | Chưa phát qua handler đang chạy |
 | 3033 | `PAY_ALREADY_DONE` | Chưa phát qua handler đang chạy |
 | 3034 | `BOOKING_EXPIRED` | Chưa phát qua handler đang chạy |

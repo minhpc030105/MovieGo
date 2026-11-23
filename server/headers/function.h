@@ -6,7 +6,7 @@
 #include "../../lib/resultCodes.h"
 
 typedef struct Session {
-    MYSQL *db;
+    MYSQL *db;  // Borrowed only while dispatching a request. NULL between requests.
     unsigned long long user_id;
     int role_id;
     bool is_auth;

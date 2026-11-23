@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "../db/connect.h"
 #include "../lib/socket/socket.h"
+#include "headers/db_pool.h"
 #include "headers/function.h"
 #include "headers/logger.h"
 
@@ -19,16 +20,18 @@ static void *serve_client(void *arg) {
     char request[MAX_RESP_BUF_SIZE + 1];
     char response[MAX_RESP_BUF_SIZE + 1];
 
+    if (mysql_thread_init() != 0) {
+        close(fd);
+        return NULL;
+    }
     if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &idle_timeout, sizeof(idle_timeout)) == 0) {
-        connectDatabase(&session.db);
-        while (session.db && !session.closing && recv_frame(fd, request, sizeof(request)) == 0) {
+        while (!session.closing && recv_frame(fd, request, sizeof(request)) == 0) {
             int code = dispatch_request(&session, request, response, sizeof(response));
             logResult(fd, "SEND", code);
             if (sendMessage(fd, response) < 0) break;
         }
     }
     clear_session(&session);
-    if (session.db) mysql_close(session.db);
     mysql_thread_end();
     close(fd);
     return NULL;
@@ -40,10 +43,10 @@ int main(int argc, char **argv) {
         return 1;
     }
     if (mysql_library_init(0, NULL, NULL) != 0) return 1;
-    MYSQL *db = NULL;
-    connectDatabase(&db);
-    if (!db) return 1;
-    mysql_close(db);
+    if (db_pool_init(SERVER, USER, PASSWORD, DATABASE, DEFAULT_DB_POOL_SIZE) != 0) {
+        mysql_library_end();
+        return 1;
+    }
     initLogger();
 
     int listener = socket(AF_INET, SOCK_STREAM, 0);
@@ -54,6 +57,9 @@ int main(int argc, char **argv) {
     if (listener < 0 || setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0 ||
         bind(listener, (struct sockaddr *)&addr, sizeof(addr)) < 0 || listen(listener, 20) < 0) {
         perror("listen");
+        if (listener >= 0) close(listener);
+        db_pool_destroy();
+        mysql_library_end();
         return 1;
     }
     for (;;) {

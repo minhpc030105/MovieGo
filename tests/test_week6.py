@@ -1,6 +1,6 @@
 """Run on Linux with make, GCC, libmysqlclient-dev and MariaDB server/client tools."""
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import os
@@ -65,6 +65,46 @@ def wait_until(check, process):
             return
         time.sleep(0.1)
     raise TimeoutError(process.args[0])
+
+
+def exercise_pool(port, cli, server):
+    def connect():
+        return socket.create_connection(("127.0.0.1", port), timeout=5)
+
+    with ExitStack() as sockets:
+        alice = sockets.enter_context(connect())
+        assert request(alice, "LOGIN", "alice", "pw") == ["1010"]
+        readers = [sockets.enter_context(connect()) for _ in range(10)]
+        # Hold reads on the disposable test DB until all ten requests own a connection.
+        with subprocess.Popen(cli + ["--batch", "--skip-column-names", "--unbuffered"],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as locker:
+            try:
+                locker.stdin.write("LOCK TABLES users WRITE; SELECT 'locked';\n")
+                locker.stdin.flush()
+                assert locker.stdout.readline().strip() == "locked"
+                for peer in readers:
+                    peer.sendall(frame("LOGIN\r\nunregistered\r\npw"))
+
+                def all_blocked():
+                    query = ("SELECT COUNT(*) FROM information_schema.PROCESSLIST "
+                             "WHERE DB=DATABASE() AND ID<>CONNECTION_ID() AND STATE LIKE '%lock%'")
+                    count = subprocess.check_output(cli + ["-BN", "-e", query], text=True)
+                    return int(count) == 10
+
+                wait_until(all_blocked, server)
+                start = time.monotonic()
+                assert request(alice, "SHOW_FILMS") == ["3031"]
+                assert 1.8 <= time.monotonic() - start < 5
+                with connect() as guest:
+                    assert request(guest, "SHOW_FILMS") == ["3028"]
+                    assert request(guest, "EXIT") == ["1030"]
+            finally:
+                locker.communicate("UNLOCK TABLES;\n", timeout=5)
+
+        for peer in readers:
+            assert response(peer) == ["2011"]
+        assert request(alice, "SHOW_FILMS")[0] == "1073"
+        assert request(alice, "LOGOUT") == ["1030"]
 
 
 def exercise(port, sql, client):
@@ -207,6 +247,7 @@ def main():
                 "VALUES (1,1,'2030-01-01 10:00','2030-01-01 11:30');"
                 "ALTER USER 'root'@'localhost' IDENTIFIED BY '123456';")
             cli.append("-p123456")
+            sql((ROOT / "db/upgrade_v2.sql").read_text())
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
@@ -217,6 +258,7 @@ def main():
 
             with running([str(server), str(port)], work, env) as proc:
                 wait_until(listening, proc)
+                exercise_pool(port, cli, proc)
                 exercise(port, sql, str(client))
     print("Week 6 framing, session, role and Console checks passed.")
 
