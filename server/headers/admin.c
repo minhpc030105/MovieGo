@@ -25,13 +25,28 @@ int handle_show_users(Session *session, const char *payload, char *resp_buf, siz
 }
 
 int handle_delete_user(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
+    (void)resp_buf;
+    (void)buf_size;
     Fields fields;
     if (!read_fields(payload, "i", &fields)) return INVALID_REQUEST;
-    int affected = stmt_execute(session->db, "DELETE FROM users WHERE id=?", "s", fields.value[0]);
+    unsigned long long target_id = strtoull(fields.value[0], NULL, 10);
+    if (target_id == session->user_id) return DELETE_USER_FAIL;
+
+    int has_records = 0;
+    if (stmt_get_int(session->db, &has_records,
+        "SELECT (EXISTS(SELECT 1 FROM tickets WHERE user_id=?) "
+        "OR EXISTS(SELECT 1 FROM bookings WHERE user_id=?))",
+        "uu", target_id, target_id) != 0 || has_records) {
+        return DELETE_USER_FAIL;
+    }
+
+    int affected = stmt_execute(session->db, "DELETE FROM users WHERE id=?", "u", target_id);
     return affected == 1 ? DELETE_USER_SUCCESS : DELETE_USER_FAIL;
 }
 
 int handle_change_role(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
+    (void)resp_buf;
+    (void)buf_size;
     Fields fields;
     if (!read_fields(payload, "ir", &fields)) return INVALID_REQUEST;
     int affected = stmt_execute(session->db, "UPDATE users SET role_id=? WHERE id=?", "ss",
@@ -40,6 +55,8 @@ int handle_change_role(Session *session, const char *payload, char *resp_buf, si
 }
 
 int handle_add_film(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
+    (void)resp_buf;
+    (void)buf_size;
     Fields fields;
     if (!read_fields(payload, "sii", &fields)) return INVALID_REQUEST;
     const char *title = fields.value[0];
@@ -108,6 +125,8 @@ int handle_room_showtimes(Session *session, const char *payload, char *resp_buf,
 }
 
 int handle_add_showtime(Session *session, const char *payload, char *resp_buf, size_t buf_size) {
+    (void)resp_buf;
+    (void)buf_size;
     Fields fields;
     if (!read_fields(payload, "iiis", &fields)) return INVALID_REQUEST;
     const char *film = fields.value[0], *cinema = fields.value[1], *room = fields.value[2], *start = fields.value[3];
@@ -130,7 +149,7 @@ int handle_add_showtime(Session *session, const char *payload, char *resp_buf, s
         return ROOM_NOT_BELONG_CINEMA;
     }
 
-    char end[32];
+    char end[32] = {0};
     if (stmt_get_string(session->db, end, sizeof(end), "SELECT DATE_ADD(?,INTERVAL ? MINUTE)", "si", start, minutes) != 0 || !end[0]) {
         return INVALID_DATETIME_FORMAT;
     }

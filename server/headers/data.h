@@ -65,7 +65,24 @@ int stmt_get_int(MYSQL *db, int *out_val, const char *sql, const char *types, ..
  */
 int stmt_get_string(MYSQL *db, char *out_buf, size_t buf_size, const char *sql, const char *types, ...);
 
-/* Các hàm phụ trợ tương thích ngược */
+/**
+ * @brief Bắt đầu một InnoDB Transaction trên kết nối db đã mượn từ pool
+ * @return 0 nếu thành công, -1 nếu lỗi
+ */
+int db_tx_begin(MYSQL *db);
+
+/**
+ * @brief Xác nhận (COMMIT) giao dịch hiện tại trên kết nối db
+ * @return 0 nếu thành công, -1 nếu lỗi
+ */
+int db_tx_commit(MYSQL *db);
+
+/**
+ * @brief Hoàn tác (ROLLBACK) giao dịch hiện tại trên kết nối db
+ */
+void db_tx_rollback(MYSQL *db);
+
+/* DEPRECATED: Chỉ giữ tạm thời cho tương thích ngược khi booking.c chuyển sang stmt_select */
 MYSQL_RES *select_rows(MYSQL *db, const char *format, ...);
 bool execute_update(MYSQL *db, const char *format, ...);
 

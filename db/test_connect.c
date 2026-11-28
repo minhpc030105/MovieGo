@@ -6,7 +6,12 @@ int main() {
     MYSQL *conn;
     MYSQL_RES *result;
     MYSQL_ROW row;
-    
+
+    if (mysql_library_init(0, NULL, NULL) != 0) {
+        fprintf(stderr, "mysql_library_init failed\n");
+        return 1;
+    }
+
     printf("Connecting to MySQL database...\n");
     
     // Kết nối database
@@ -14,6 +19,7 @@ int main() {
     
     if (conn == NULL) {
         printf("Connection failed!\n");
+        mysql_library_end();
         return 1;
     }
     
@@ -73,6 +79,7 @@ int main() {
     
     // Đóng kết nối
     mysql_close(conn);
+    mysql_library_end();
     
     return 0;
 }

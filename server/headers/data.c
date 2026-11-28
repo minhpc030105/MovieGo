@@ -230,7 +230,7 @@ int stmt_get_int(MYSQL *db, int *out_val, const char *sql, const char *types, ..
     out_bind.buffer = &val;
     out_bind.is_null = &is_null;
 
-    if (mysql_stmt_bind_result(stmt, &out_bind) != 0 || mysql_stmt_fetch(stmt) != 0) {
+    if (mysql_stmt_bind_result(stmt, &out_bind) != 0 || mysql_stmt_fetch(stmt) != 0 || is_null) {
         mysql_stmt_close(stmt);
         return -1;
     }
@@ -242,6 +242,7 @@ int stmt_get_int(MYSQL *db, int *out_val, const char *sql, const char *types, ..
 
 int stmt_get_string(MYSQL *db, char *out_buf, size_t buf_size, const char *sql, const char *types, ...) {
     if (!db || !sql || !out_buf || buf_size == 0) return -1;
+    out_buf[0] = '\0';
     MYSQL_STMT *stmt = mysql_stmt_init(db);
     if (!stmt) return -1;
 
@@ -277,7 +278,8 @@ int stmt_get_string(MYSQL *db, char *out_buf, size_t buf_size, const char *sql, 
     out_bind.length = &len;
     out_bind.is_null = &is_null;
 
-    if (mysql_stmt_bind_result(stmt, &out_bind) != 0 || mysql_stmt_fetch(stmt) != 0) {
+    if (mysql_stmt_bind_result(stmt, &out_bind) != 0 || mysql_stmt_fetch(stmt) != 0 || is_null) {
+        out_buf[0] = '\0';
         mysql_stmt_close(stmt);
         return -1;
     }
@@ -289,7 +291,21 @@ int stmt_get_string(MYSQL *db, char *out_buf, size_t buf_size, const char *sql, 
     return 0;
 }
 
-/* Các hàm tương thích ngược (khi cần) */
+int db_tx_begin(MYSQL *db) {
+    if (!db) return -1;
+    return mysql_query(db, "START TRANSACTION") == 0 ? 0 : -1;
+}
+
+int db_tx_commit(MYSQL *db) {
+    if (!db) return -1;
+    return mysql_query(db, "COMMIT") == 0 ? 0 : -1;
+}
+
+void db_tx_rollback(MYSQL *db) {
+    if (db) mysql_query(db, "ROLLBACK");
+}
+
+/* DEPRECATED: Chỉ giữ tạm thời cho tương thích ngược khi booking.c chuyển sang stmt_select */
 static bool run_query(MYSQL *db, const char *format, va_list args) {
     char sql[4096];
     int n = vsnprintf(sql, sizeof(sql), format, args);

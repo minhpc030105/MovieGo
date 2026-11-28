@@ -87,6 +87,7 @@ CREATE TABLE showtimes (
     room_id BIGINT UNSIGNED NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 75000.00,
     FOREIGN KEY (film_id) REFERENCES films(id),
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     UNIQUE (room_id, start_time)

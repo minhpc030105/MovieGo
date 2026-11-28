@@ -139,3 +139,21 @@ INSERT IGNORE INTO seats (room_id, seat_number, row_name) VALUES
 -- 7. Sửa vé số 4 và 5 khớp phòng của suất chiếu (Suất 4 & 6 thuộc Room 2 -> seat 122 và 133)
 UPDATE tickets SET seat_id = 122 WHERE id = 4 AND seat_id = 22;
 UPDATE tickets SET seat_id = 133 WHERE id = 5 AND seat_id = 33;
+
+-- 8. Bổ sung cột giá vé (price) vào bảng showtimes nếu chưa có (mặc định 75.000 VNĐ)
+SET @columnname = "price";
+SET @tablename = "showtimes";
+SET @preparedStatement = (SELECT IF(
+  (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE
+      (table_name = @tablename)
+      AND (table_schema = @dbname)
+      AND (column_name = @columnname)
+  ) > 0,
+  "SELECT 1",
+  "ALTER TABLE showtimes ADD COLUMN price DECIMAL(10,2) NOT NULL DEFAULT 75000.00 AFTER end_time;"
+));
+PREPARE alterShowtimesPrice FROM @preparedStatement;
+EXECUTE alterShowtimesPrice;
+DEALLOCATE PREPARE alterShowtimesPrice;

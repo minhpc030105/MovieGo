@@ -9,6 +9,11 @@
 int main(void) {
     printf("=== RUNNING UNIT TEST: C MODULES (PREPARED STATEMENTS & SECURITY) ===\n");
 
+    if (mysql_library_init(0, NULL, NULL) != 0) {
+        fprintf(stderr, "mysql_library_init failed\n");
+        return 1;
+    }
+
     /* -------------------------------------------------------------------------
      * Test 1: Kiem tra bao mat thu vien security_utils (PBKDF2-HMAC + Salt)
      * ------------------------------------------------------------------------- */
@@ -32,6 +37,7 @@ int main(void) {
     MYSQL *conn = mysql_init(NULL);
     if (!conn) {
         fprintf(stderr, "mysql_init failed\n");
+        mysql_library_end();
         return 1;
     }
 
@@ -48,6 +54,7 @@ int main(void) {
         assert(stmt_execute(NULL, "SELECT 1", NULL) == -1);
         assert(stmt_select(NULL, "SELECT 1", NULL) == NULL);
         mysql_close(conn);
+        mysql_library_end();
         printf("--> PASS: Cac ham Prepared Statements xu ly con tro NULL an toan, khong crash!\n\n");
         printf("=== TEST HOAN TAT (Offline mode PASS) ===\n");
         return 0;
@@ -140,9 +147,54 @@ int main(void) {
         printf("--> PASS: stmt_select hoat dong hoan hao va giai phong bo nho sach se!\n\n");
     }
 
+    /* -------------------------------------------------------------------------
+     * Test 8: Kiem tra xu ly gia tri NULL trong stmt_get_int / stmt_get_string
+     * ------------------------------------------------------------------------- */
+    printf("[8] Kiem tra xu ly gia tri NULL trong stmt_get_int / stmt_get_string...\n");
+    int null_int = 999;
+    assert(stmt_get_int(conn, &null_int, "SELECT NULL", NULL) == -1);
+    char null_str[32] = "stale";
+    assert(stmt_get_string(conn, null_str, sizeof(null_str),
+                           "SELECT DATE_ADD(?, INTERVAL 60 MINUTE)", "s", "not-a-date") == -1);
+    assert(null_str[0] == '\0');
+    printf("--> PASS: stmt_get_int va stmt_get_string xu ly NULL an toan!\n\n");
+
+    /* -------------------------------------------------------------------------
+     * Test 9: Kiem tra helper Transaction InnoDB (begin / rollback / commit)
+     * ------------------------------------------------------------------------- */
+    printf("[9] Kiem tra helper Transaction (db_tx_begin / db_tx_rollback / db_tx_commit)...\n");
+    const char *tx_uname = "hung_tx_test";
+    stmt_execute(conn, "DELETE FROM users WHERE username = ?", "s", tx_uname);
+
+    assert(db_tx_begin(conn) == 0);
+    assert(user_register(conn, "TX Rollback", tx_uname, test_pass, 2) == 1);
+    db_tx_rollback(conn);
+    int tx_count = -1;
+    assert(stmt_get_int(conn, &tx_count, "SELECT COUNT(*) FROM users WHERE username = ?", "s", tx_uname) == 0);
+    assert(tx_count == 0);
+
+    assert(db_tx_begin(conn) == 0);
+    assert(user_register(conn, "TX Commit", tx_uname, test_pass, 2) == 1);
+    assert(db_tx_commit(conn) == 0);
+    assert(stmt_get_int(conn, &tx_count, "SELECT COUNT(*) FROM users WHERE username = ?", "s", tx_uname) == 0);
+    assert(tx_count == 1);
+    stmt_execute(conn, "DELETE FROM users WHERE username = ?", "s", tx_uname);
+    printf("--> PASS: Transaction begin/rollback/commit hoat dong chinh xac!\n\n");
+
+    /* -------------------------------------------------------------------------
+     * Test 10: Kiem tra cot price cua bang showtimes
+     * ------------------------------------------------------------------------- */
+    printf("[10] Kiem tra cot gia ve (showtimes.price)...\n");
+    char price_buf[32] = {0};
+    assert(stmt_get_string(conn, price_buf, sizeof(price_buf), "SELECT price FROM showtimes LIMIT 1", NULL) == 0);
+    assert(price_buf[0] != '\0');
+    printf("    Gia ve mau doc duoc tu showtimes.price: %s\n", price_buf);
+    printf("--> PASS: Cot showtimes.price san sang cho nghiep vu dat ve!\n\n");
+
     /* Don dep du lieu test */
     stmt_execute(conn, "DELETE FROM users WHERE username = ?", "s", test_uname);
     mysql_close(conn);
+    mysql_library_end();
 
     printf("=== TAT CA CAC TEST C_MODULES DEU PASS 100%% ===\n");
     return 0;

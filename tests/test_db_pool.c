@@ -50,6 +50,11 @@ static void* worker_task(void *arg) {
 int main(void) {
     printf("=== RUNNING UNIT TEST: DB_POOL (10 CONNECTIONS & TIMEOUT 2000ms) ===\n");
 
+    if (mysql_library_init(0, NULL, NULL) != 0) {
+        fprintf(stderr, "mysql_library_init failed\n");
+        return 1;
+    }
+
     const char *host = "localhost";
     const char *user = "root";
     const char *pass = "123456";
@@ -66,6 +71,7 @@ int main(void) {
         assert(db_pool_acquire_timeout(100) == NULL);
         db_pool_release(NULL);
         db_pool_destroy();
+        mysql_library_end();
         printf("--> PASS: db_pool xu ly loi ket noi an toan, timeout hop le, khong crash!\n\n");
         printf("=== TEST HOAN TAT (Offline mode PASS) ===\n");
         return 0;
@@ -113,28 +119,43 @@ int main(void) {
     assert(db_pool_available_count() == 10);
     printf("--> PASS: Da tra du 10 ket noi, so ket noi ranh chinh xac la %d!\n\n", db_pool_available_count());
 
-    /* Test 4: Kiem tra co che tu dong ket noi lai khi gap loi ket noi hoac o chua NULL */
-    printf("[4] Kiem tra phuc hoi ket noi khi o chua NULL hoac socket bi dong dot ngot...\n");
+    /* Test 4: Kiem tra co che tu dong ket noi lai khi phien MySQL bi ngat dot ngot (KILL) */
+    printf("[4] Kiem tra phuc hoi ket noi khi phien MySQL bi ngat dot ngot...\n");
     MYSQL *bad_conn = db_pool_acquire(1000);
     assert(bad_conn != NULL);
-    /* Chu dong dong socket de gay loi mysql_ping */
-    mysql_close(bad_conn);
+    unsigned long bad_tid = mysql_thread_id(bad_conn);
+
+    /* Dung 1 ket noi tam ngoai pool de KILL phien cua bad_conn phia server MySQL */
+    MYSQL *killer = mysql_init(NULL);
+    assert(killer != NULL);
+    assert(mysql_real_connect(killer, host, user, pass, db, 0, getenv("MYSQL_UNIX_PORT"), 0) != NULL);
+    char kill_sql[64];
+    snprintf(kill_sql, sizeof(kill_sql), "KILL %lu", bad_tid);
+    assert(mysql_query(killer, kill_sql) == 0);
+    mysql_close(killer);
+
     db_pool_release(bad_conn);
 
-    /* Lan muon tiep theo phai phat hien ping loi / NULL va tu dong ket noi lai thanh cong */
-    MYSQL *recovered_conn = db_pool_acquire(2000);
-    assert(recovered_conn != NULL);
-    assert(mysql_query(recovered_conn, "SELECT 1") == 0);
-    MYSQL_RES *res = mysql_store_result(recovered_conn);
-    if (res) mysql_free_result(res);
-    db_pool_release(recovered_conn);
+    /* Kiem tra toan bo 10 slot trong pool: slot bi KILL phai tu dong reconnect va chay duoc SELECT 1 */
+    MYSQL *checked_conns[10];
+    for (int i = 0; i < 10; i++) {
+        checked_conns[i] = db_pool_acquire(2000);
+        assert(checked_conns[i] != NULL);
+        assert(mysql_query(checked_conns[i], "SELECT 1") == 0);
+        MYSQL_RES *res = mysql_store_result(checked_conns[i]);
+        if (res) mysql_free_result(res);
+    }
+    for (int i = 0; i < 10; i++) {
+        db_pool_release(checked_conns[i]);
+    }
     assert(db_pool_available_count() == 10);
-    printf("--> PASS: Tu dong phuc hoi ket noi loi/NULL thanh cong, pool giu nguyen 10 ket noi ranh!\n\n");
+    printf("--> PASS: Tu dong phuc hoi ket noi bi ngat thanh cong, pool giu nguyen 10 ket noi ranh!\n\n");
 
     /* Test 5: Dong toan bo pool */
     printf("[5] Goi db_pool_destroy()...\n");
     db_pool_destroy();
     assert(db_pool_acquire(100) == NULL);
+    mysql_library_end();
     printf("--> PASS: db_pool_destroy thu hoi toan bo ket noi an toan!\n\n");
 
     printf("=== TAT CA TESTS DB_POOL DEU PASS 100%% ===\n");

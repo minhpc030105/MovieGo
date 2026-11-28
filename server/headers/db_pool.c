@@ -57,6 +57,33 @@ static void get_timeout_timespec(unsigned int timeout_ms, struct timespec *ts) {
 }
 
 /**
+ * @brief Khởi tạo và cấu hình 1 kết nối MySQL (utf8mb4 + connect timeout)
+ */
+static MYSQL *create_pool_connection(const char *host, const char *user,
+                                     const char *pass, const char *db,
+                                     const char *caller) {
+    MYSQL *conn = mysql_init(NULL);
+    if (conn == NULL) {
+        fprintf(stderr, "%s error: mysql_init failed\n", caller);
+        return NULL;
+    }
+
+    unsigned int connect_timeout = 5;
+    mysql_options(conn, MYSQL_OPT_CONNECT_TIMEOUT, &connect_timeout);
+    mysql_options(conn, MYSQL_SET_CHARSET_NAME, "utf8mb4");
+
+    if (mysql_real_connect(conn, host, user, pass, db, 0,
+                           getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) == NULL) {
+        fprintf(stderr, "%s error: connect to database '%s' failed: %s\n",
+                caller, db, mysql_error(conn));
+        mysql_close(conn);
+        return NULL;
+    }
+
+    return conn;
+}
+
+/**
  * @brief Khởi tạo pool kết nối MySQL
  */
 int db_pool_init(const char *host, const char *user, const char *pass, const char *db, int pool_size) {
@@ -91,25 +118,9 @@ int db_pool_init(const char *host, const char *user, const char *pass, const cha
     strncpy(g_pool.db, db, sizeof(g_pool.db) - 1);
 
     for (int i = 0; i < pool_size; i++) {
-        MYSQL *conn = mysql_init(NULL);
+        MYSQL *conn = create_pool_connection(host, user, pass, db, "db_pool_init");
         if (conn == NULL) {
-            fprintf(stderr, "db_pool_init error: mysql_init failed at index %d\n", i);
             /* Thu hồi các kết nối đã tạo trước đó */
-            for (int j = 0; j < i; j++) {
-                if (g_pool.connections[j].conn != NULL) {
-                    mysql_close(g_pool.connections[j].conn);
-                }
-            }
-            free(g_pool.connections);
-            g_pool.connections = NULL;
-            pthread_mutex_unlock(&g_pool.lock);
-            return -1;
-        }
-
-        if (mysql_real_connect(conn, host, user, pass, db, 0, getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) == NULL) {
-            fprintf(stderr, "db_pool_init error: connect to database '%s' failed at index %d: %s\n",
-                    db, i, mysql_error(conn));
-            mysql_close(conn);
             for (int j = 0; j < i; j++) {
                 if (g_pool.connections[j].conn != NULL) {
                     mysql_close(g_pool.connections[j].conn);
@@ -195,18 +206,7 @@ MYSQL* db_pool_acquire(unsigned int timeout_ms) {
     }
 
     if (need_reconnect) {
-        MYSQL *new_conn = mysql_init(NULL);
-        if (new_conn != NULL) {
-            if (mysql_real_connect(new_conn, g_pool.host, g_pool.user, g_pool.pass, g_pool.db, 0, getenv("MYSQL_UNIX_PORT"), CLIENT_FOUND_ROWS) != NULL) {
-                conn = new_conn;
-            } else {
-                fprintf(stderr, "db_pool_acquire: reconnect failed: %s\n", mysql_error(new_conn));
-                mysql_close(new_conn);
-                conn = NULL;
-            }
-        } else {
-            conn = NULL;
-        }
+        conn = create_pool_connection(g_pool.host, g_pool.user, g_pool.pass, g_pool.db, "db_pool_acquire");
 
         pthread_mutex_lock(&g_pool.lock);
         g_pool.connections[found_idx].conn = conn;

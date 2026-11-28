@@ -52,6 +52,7 @@ void hash_password(const char *password, const char *salt, char *hash_out) {
     if (password == NULL || salt == NULL || hash_out == NULL) {
         return;
     }
+    hash_out[0] = '\0';
 
     unsigned char derived_key[32]; // 32 bytes = 256 bits derived key
     int pass_len = (int)strlen(password);
