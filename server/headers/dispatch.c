@@ -6,7 +6,10 @@
 enum {
     ADMIN = 1 << 0, MANAGER = 1 << 1, CUSTOMER = 1 << 2, GUEST = 1 << 3,
     BROWSE = CUSTOMER | MANAGER, SIGNED_IN = ADMIN | MANAGER | CUSTOMER,
-    EVERYONE = SIGNED_IN | GUEST
+    EVERYONE = SIGNED_IN | GUEST,
+    /* The handler borrows its OWN pooled connection, so it can take the showtime lock first
+     * (booking_lock.h). The dispatcher only lends one for the role check, then returns it. */
+    OWN_DB = 1 << 4
 };
 
 static const struct {
@@ -29,7 +32,10 @@ static const struct {
     {"SHOW_CINEMA_BY_FILM", CUSTOMER, handle_film_cinemas},
     {"SHOW_TIME_BY_FILM_CINEMA", CUSTOMER, handle_film_showtimes},
     {"SHOW_SEATS", CUSTOMER, handle_show_seats},
-    {"BOOK_TICKET", CUSTOMER, handle_book_ticket},
+    {"BOOK_TICKET", CUSTOMER | OWN_DB, handle_book_ticket},
+    {"BOOK_TICKETS", CUSTOMER | OWN_DB, handle_book_tickets},
+    {"PAY_BOOKING", CUSTOMER | OWN_DB, handle_pay_booking},
+    {"CANCEL_BOOKING", CUSTOMER | OWN_DB, handle_cancel_booking},
     {"SEARCH_FILM_BY_TITLE", BROWSE, handle_search_films},
     {"ADD_FILM", MANAGER, handle_add_film},
     {"VIEW_TICKETS", CUSTOMER, handle_view_tickets},
@@ -63,8 +69,7 @@ static bool split_request(char *request, char **payload) {
     return true;
 }
 
-static int run_db_command(Session *session, unsigned roles, Handler *handler,
-                          const char *payload, char *body, size_t size) {
+static int check_access(Session *session, unsigned roles, Handler *handler) {
     if (session->is_auth) {
         int error = refresh_role(session);
         if (error) return error;
@@ -72,13 +77,14 @@ static int run_db_command(Session *session, unsigned roles, Handler *handler,
         if (!(roles & (1u << session->role_id)))
             return handler == handle_login ? LOGIN_ALREADY : PERMISSION_DENIED;
     }
-    return handler(session, payload, body, size);
+    return 0;
 }
 
 static int route(Session *session, char *name, const char *payload, char *body, size_t size) {
     for (size_t i = 0; i < sizeof(command_table) / sizeof(command_table[0]); i++) {
         if (strcmp(name, command_table[i].name) != 0) continue;
-        unsigned roles = command_table[i].roles;
+        unsigned flags = command_table[i].roles;
+        unsigned roles = flags & ~(unsigned)OWN_DB;
         Handler *handler = command_table[i].handler;
         if (!session->is_auth && !(roles & GUEST)) return AUTH_REQUIRED;
         if (handler == handle_logout || handler == handle_exit)
@@ -86,7 +92,14 @@ static int route(Session *session, char *name, const char *payload, char *body, 
 
         session->db = db_pool_acquire(DB_ACQUIRE_TIMEOUT_MS);
         if (!session->db) return SERVER_BUSY;
-        int code = run_db_command(session, roles, handler, payload, body, size);
+        int code = check_access(session, roles, handler);
+        if (code == 0 && (flags & OWN_DB)) {
+            /* Give the connection back BEFORE the handler waits for a showtime lock. */
+            db_pool_release(session->db);
+            session->db = NULL;
+            return handler(session, payload, body, size);
+        }
+        if (code == 0) code = handler(session, payload, body, size);
         db_pool_release(session->db);
         session->db = NULL;
         return code;

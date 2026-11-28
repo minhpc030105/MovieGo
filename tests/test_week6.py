@@ -135,7 +135,7 @@ def exercise(port, sql, client):
         assert request(alice, "BROWSE_CINEMA", "1")[0] == "1071"
         assert request(alice, "SEARCH_FILM_BY_TITLE", "Firs")[0] == "1073"
         assert request(alice, "ADD_FILM", "Third", "1", "90") == ["3029"]
-        assert request(alice, "SHOW_SEATS", "1") == ["1080", "SEAT|1|A-1"]
+        assert request(alice, "SHOW_SEATS", "1") == ["1080", "SEAT|1|A-1|AVAILABLE"]
         assert request(alice, "BOOK_TICKET", "1", "1") == ["1200"]
         assert request(alice, "VIEW_TICKET_DETAIL", "1")[1] == "=== TICKET DETAIL ==="
         assert request(alice, "BOOK_TICKET", "1", "") == ["3018"]
@@ -248,6 +248,7 @@ def main():
                 "ALTER USER 'root'@'localhost' IDENTIFIED BY '123456';")
             cli.append("-p123456")
             sql((ROOT / "db/upgrade_v2.sql").read_text())
+            sql((ROOT / "db/upgrade_week7.sql").read_text())
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
