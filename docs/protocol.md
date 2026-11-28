@@ -184,19 +184,51 @@ Dòng chi tiết phim dùng chung mẫu `ID: id | Title: title | Category: categ
 - **Parameters** showtime_id.
 - **Required authentication** Có.
 - **Required role** User.
-- **Success response** 1080, mỗi dòng `SEAT|seat_id|row_name-seat_number`.
-- **Error response** 3019 không có suất trong cache, 3020 hết ghế.
-- **Example** `SHOW_SEATS\r\n1`.
+- **Success response** 1080, một dòng cho MỖI ghế của phòng: `SEAT|seat_id|row_name-seat_number|STATE`. `STATE` là `AVAILABLE` (trống), `HELD` (đang được giữ bởi đơn PENDING chưa hết hạn) hoặc `BOOKED` (đã có vé). Đơn giữ ghế quá `expires_at` được tính là `AVAILABLE` ngay, không chờ sweeper. Client chỉ cho chọn ghế `AVAILABLE`.
+- **Error response** 3019 không có suất chiếu, 3010 phòng không có ghế, 3009 lỗi đọc CSDL.
+- **Example** `SHOW_SEATS\r\n1` -> `1080\r\nSEAT|1|A-1|AVAILABLE\r\nSEAT|2|A-2|HELD\r\nSEAT|3|A-3|BOOKED`.
 
-### BOOK_TICKET
+### BOOK_TICKETS
+
+- **Request** `BOOK_TICKETS` theo sau bởi các tham số bên dưới theo thứ tự.
+- **Parameters** showtime_id, danh sách seat_id cách nhau bằng dấu phẩy (1 đến 10 ghế, chỉ chữ số và dấu phẩy, không trùng, không khoảng trắng).
+- **Required authentication** Có.
+- **Required role** User.
+- **Success response** 1210 + một dòng `BOOKING|booking_id|PENDING|total_amount|expires_at|seat_ids`. Giữ ghế 10 phút. `total_amount` do server tính từ `showtimes.price`, client không gửi giá.
+- **Error response** 3037 danh sách ghế sai định dạng hoặc ghế không thuộc phòng của suất, 3019 không có suất, 3032 có ít nhất một ghế đã bán hoặc đang bị giữ (từ chối CẢ đơn, không giữ ghế nào), 3031 server bận, 3022 lỗi CSDL.
+- **Example** `BOOK_TICKETS\r\n1\r\n12,13,14`.
+- **Ghi chú** Các yêu cầu cùng suất chiếu được xếp hàng trong server (khóa theo suất chiếu, chờ tối đa 30 giây) và KHÔNG giữ kết nối CSDL trong lúc chờ; suất chiếu khác không bị ảnh hưởng.
+
+### PAY_BOOKING
+
+- **Request** `PAY_BOOKING` theo sau bởi các tham số bên dưới theo thứ tự.
+- **Parameters** booking_id.
+- **Required authentication** Có.
+- **Required role** User.
+- **Success response** 1220 + một dòng `BOOKING|booking_id|PAID|total_amount|balance_after`. Một giao dịch: đổi PENDING thành PAID (có điều kiện), trừ ví, phát hành vé, ghi sổ cái `wallet_transactions`.
+- **Error response** 3036 không có đơn hoặc không phải của người gọi, 3033 đơn đã thanh toán (không trừ tiền lần hai), 3034 đơn hết hạn hoặc đã hủy, 3035 không đủ số dư, 3032 ghế đã bán trong lúc chờ, 3031 server bận, 3022 lỗi CSDL.
+- **Example** `PAY_BOOKING\r\n5`.
+
+### CANCEL_BOOKING
+
+- **Request** `CANCEL_BOOKING` theo sau bởi các tham số bên dưới theo thứ tự.
+- **Parameters** booking_id.
+- **Required authentication** Có.
+- **Required role** User.
+- **Success response** 1230, đơn PENDING chuyển CANCELLED, ghế được nhả ngay.
+- **Error response** 3036 không có đơn hoặc không phải của người gọi, 3038 đơn đã thanh toán hoặc đã hủy (hoàn tiền vé đã mua là việc của tuần 8), 3031 server bận, 3022 lỗi CSDL.
+- **Example** `CANCEL_BOOKING\r\n5`.
+
+### BOOK_TICKET (cũ, giữ tạm)
 
 - **Request** `BOOK_TICKET` theo sau bởi các tham số bên dưới theo thứ tự.
 - **Parameters** showtime_id, seat_id.
 - **Required authentication** Có.
 - **Required role** User.
-- **Success response** 1200, ghi ngay một vé cho phiên.
-- **Error response** 2200 suất/ghế không tồn tại, ghế đã đặt hoặc ghi thất bại.
+- **Success response** 1200, ghi ngay một vé (không qua ví). Dùng cùng khóa suất chiếu và cùng quy tắc ghế trống với BOOK_TICKETS nên không thể lấy ghế đang bị giữ.
+- **Error response** 2200 suất/ghế không tồn tại, ghế đã bán hoặc đang bị giữ, ghi thất bại; 3031 server bận.
 - **Example** `BOOK_TICKET\r\n1\r\n15`.
+- **Ghi chú** Chỉ giữ để client tuần 6 chạy được. Xóa dòng đăng ký trong `dispatch.c` khi client đã chuyển sang BOOK_TICKETS.
 
 ### SEARCH_FILM_BY_TITLE
 
@@ -330,7 +362,7 @@ Tên mã từ `lib/resultCodes.h`. Cột **Used by** dựa trên dispatcher và 
 | 2071 | `BROWSE_FAIL` | BROWSE_CATEGORY, BROWSE_CINEMA, BROWSE_PREMIERED_TIME |
 | 1065 | `SHOW_CATEGORY_SUCCESS` | SHOW_CATEGORIES |
 | 2060 | `SHOW_CATEGORY_FAIL` | Chưa phát qua handler đang chạy |
-| 1080 | `VIEW_CHAIR_SUCCESS` | SHOW_SEATS, VIEW_TICKETS, VIEW_TICKET_DETAIL, SHOW_ROOMS_BY_CINEMA |
+| 1080 | `VIEW_CHAIR_SUCCESS` | SHOW_SEATS (3 trạng thái), VIEW_TICKETS, VIEW_TICKET_DETAIL, SHOW_ROOMS_BY_CINEMA |
 | 2081 | `VIEW_CHAIR_FAIL` | VIEW_TICKET_DETAIL |
 | 1091 | `SHOW_SHOWTIME_SUCCESS` | SHOW_SHOWTIMES_BY_ROOM |
 | 2092 | `SHOW_TIME_FAIL` | SHOW_SHOWTIMES_BY_ROOM |
@@ -352,11 +384,14 @@ Tên mã từ `lib/resultCodes.h`. Cột **Used by** dựa trên dispatcher và 
 | 3016 | `INVALID_CINEMA` | SHOW_ROOMS_BY_CINEMA |
 | 3017 | `FAILED_ROOMS` | SHOW_ROOMS_BY_CINEMA |
 | 3018 | `INVALID_REQUEST` | Dispatcher / handlers |
-| 3019 | `INVALID_SHOWTIME` | SHOW_SEATS |
-| 3020 | `NO_SEATS_AVAILABLE` | SHOW_SEATS |
+| 3019 | `INVALID_SHOWTIME` | SHOW_SEATS, BOOK_TICKETS |
+| 3020 | `NO_SEATS_AVAILABLE` | Không còn dùng (SHOW_SEATS trả mọi ghế kèm trạng thái) |
 | 1090 | `CHOOSE_CHAIR_SUCCESS` | Chưa phát qua handler đang chạy |
 | 2091 | `CHOOSE_CHAIR_FAIL` | Chưa phát qua handler đang chạy |
 | 1200 | `BOOK_TICKET_SUCCESS` | BOOK_TICKET |
+| 1210 | `BOOK_TICKETS_SUCCESS` | BOOK_TICKETS |
+| 1220 | `PAY_BOOKING_SUCCESS` | PAY_BOOKING |
+| 1230 | `CANCEL_BOOKING_SUCCESS` | CANCEL_BOOKING |
 | 2200 | `BOOK_TICKET_FAIL` | BOOK_TICKET |
 | 3021 | `INVALID_FILM_ID` | ADD_SHOWTIME |
 | 3022 | `DB_QUERY_ERROR` | LOGIN, SHOW_ROOMS_BY_CINEMA, ADD_SHOWTIME, refresh_role |
@@ -376,11 +411,14 @@ Tên mã từ `lib/resultCodes.h`. Cột **Used by** dựa trên dispatcher và 
 | 3028 | `AUTH_REQUIRED` | Dispatcher / refresh_role |
 | 3029 | `PERMISSION_DENIED` | Dispatcher |
 | 3030 | `RESPONSE_TOO_LARGE` | Handlers tạo danh sách hoặc chi tiết |
-| 3031 | `SERVER_BUSY` | Không mượn được kết nối CSDL. Pool có 10 kết nối, thời gian chờ khi hết kết nối là 2 giây. Client có thể gửi lại yêu cầu trên cùng socket. |
-| 3032 | `SEAT_TAKEN` | Chưa phát qua handler đang chạy |
-| 3033 | `PAY_ALREADY_DONE` | Chưa phát qua handler đang chạy |
-| 3034 | `BOOKING_EXPIRED` | Chưa phát qua handler đang chạy |
-| 3035 | `NOT_ENOUGH_BALANCE` | Chưa phát qua handler đang chạy |
+| 3031 | `SERVER_BUSY` | Không mượn được kết nối CSDL (pool 10 kết nối, chờ 2 giây), hoặc BOOK_TICKET/BOOK_TICKETS/PAY_BOOKING không lấy được khóa suất chiếu sau 30 giây. Chờ khóa suất chiếu không chiếm kết nối. Client có thể gửi lại trên cùng socket. |
+| 3032 | `SEAT_TAKEN` | BOOK_TICKETS, PAY_BOOKING |
+| 3033 | `PAY_ALREADY_DONE` | PAY_BOOKING |
+| 3034 | `BOOKING_EXPIRED` | PAY_BOOKING |
+| 3035 | `NOT_ENOUGH_BALANCE` | PAY_BOOKING |
+| 3036 | `BOOKING_NOT_FOUND` | PAY_BOOKING, CANCEL_BOOKING |
+| 3037 | `INVALID_SEAT_LIST` | BOOK_TICKETS |
+| 3038 | `BOOKING_NOT_PENDING` | CANCEL_BOOKING |
 
 ## 8. Security / Session Rules
 
@@ -394,9 +432,9 @@ Tên mã từ `lib/resultCodes.h`. Cột **Used by** dựa trên dispatcher và 
 - **Cao Anh/Minh xác nhận encoding.** Qt dùng UTF-8 nhưng lớp mạng và kết nối DB không ấn định hoặc xác thực UTF-8.
 - **Cao Anh/Minh xác nhận mã và payload.** README chỉ liệt kê nhóm tài khoản. Một số tên mã được tái sử dụng cho nhiều loại dữ liệu (1071, 1072, 1073, 1080). 2071, 2072 và 2092 gộp trường hợp rỗng và lỗi truy vấn. Chốt mã theo lệnh trước khi client bổ sung xử lý lỗi riêng.
 - **Đồng bộ client.** Header message còn khai báo makeAnnounceFilmMessage, trong khi dispatcher không có lệnh công bố phim. Console in trạng thái logout sau khi đọc mã nhưng bỏ qua giá trị trả về.
-- **Cache suất chiếu.** ADD_SHOWTIME ghi CSDL; SHOW_SEATS và BOOK_TICKET tra cache. ADD_SHOWTIME không cập nhật cache, nên suất mới có thể xuất hiện trong danh sách trước khi tra ghế hoặc đặt vé được.
+- **Cache suất chiếu.** Đã bỏ (tuần 7). SHOW_SEATS và đặt vé đọc thẳng CSDL; suất thêm bằng ADD_SHOWTIME đặt được ngay, không cần khởi động lại server.
 - **Seed mẫu.** Dòng tài khoản longmh trong `db/data.txt` thiếu dấu nháy đóng tên hiển thị. Cần xác nhận seed trước khi dùng các tài khoản README cho regression.
-- **Sprint 2.** Dispatcher chưa đăng ký BOOK_TICKETS, PAY_BOOKING, CANCEL_BOOKING hoặc lệnh ví. Module payment hiện chỉ có ghi chú triển khai. Xác nhận hợp đồng nhiều ghế, thanh toán/hủy, ví, giao diện Qt và thời hạn giữ ghế ở sprint tương ứng.
+- **Sprint 2 còn lại.** Hủy vé đã thanh toán có hoàn tiền, VIEW_PAYMENTS, nạp tiền ví, PING/PONG và giới hạn client là việc của tuần 7-8 theo kế hoạch; chưa có trong dispatcher.
 
 ### Chạy regression
 

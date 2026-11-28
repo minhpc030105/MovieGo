@@ -87,6 +87,9 @@ CREATE TABLE showtimes (
     room_id BIGINT UNSIGNED NOT NULL,
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
+    -- Tuần 7: giá vé mỗi ghế. Server tự tính total_amount = price x số ghế (client không gửi giá).
+    price DECIMAL(10,2) NOT NULL DEFAULT 80000.00,
+    CHECK (price > 0),
     FOREIGN KEY (film_id) REFERENCES films(id),
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     UNIQUE (room_id, start_time)

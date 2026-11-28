@@ -10,6 +10,10 @@ Phạm vi hiện tại: server TCP đa luồng, giao thức văn bản riêng v�
 | `LOGIN` | Đăng nhập theo 3 vai trò User, Manager, Admin | 1010, 1011, 1012 / 2011, 2012 |
 | `LOGOUT` | Đăng xuất | 1030 |
 | `CHANGE_PASSWORD` | Đổi mật khẩu | 1110 / 2110 |
+| `SHOW_SEATS` | Sơ đồ ghế 3 trạng thái (AVAILABLE/HELD/BOOKED) | 1080 |
+| `BOOK_TICKETS` | Giữ 1-10 ghế trong 10 phút | 1210 / 3032, 3037 |
+| `PAY_BOOKING` | Thanh toán bằng ví nội bộ | 1220 / 3033, 3034, 3035 |
+| `CANCEL_BOOKING` | Hủy đơn chưa thanh toán | 1230 / 3036, 3038 |
 
 Một tài khoản chỉ đăng nhập được ở một nơi. Khi client ngắt kết nối đột ngột, server tự đăng xuất tài khoản đó.
 
@@ -35,6 +39,7 @@ mysql -u root -p booking < db/data.txt
 Nếu máy bạn đã có CSDL `booking` từ trước và muốn giữ nguyên dữ liệu:
 ```bash
 mysql -u root -p booking < db/upgrade_v2.sql
+mysql -u root -p booking < db/upgrade_week7.sql   # thêm showtimes.price (tuần 7)
 ```
 
 Thông tin kết nối CSDL nằm trong `db/connect.h`.

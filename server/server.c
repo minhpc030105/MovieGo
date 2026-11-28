@@ -10,6 +10,7 @@
 #include "headers/db_pool.h"
 #include "headers/function.h"
 #include "headers/logger.h"
+#include "headers/sweeper.h"
 
 static void *serve_client(void *arg) {
     int fd = *(int *)arg;
@@ -48,6 +49,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     initLogger();
+    if (sweeper_start() != 0) fprintf(stderr, "warning: sweeper thread not started\n");
 
     int listener = socket(AF_INET, SOCK_STREAM, 0);
     int reuse = 1;

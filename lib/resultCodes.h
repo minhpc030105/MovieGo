@@ -113,3 +113,11 @@
 #define PAY_ALREADY_DONE          3033
 #define BOOKING_EXPIRED           3034
 #define NOT_ENOUGH_BALANCE        3035
+#define BOOKING_NOT_FOUND         3036
+#define INVALID_SEAT_LIST         3037
+#define BOOKING_NOT_PENDING       3038
+
+/*----------MULTI-SEAT BOOKING, WALLET PAYMENT (week 7)----------*/
+#define BOOK_TICKETS_SUCCESS      1210
+#define PAY_BOOKING_SUCCESS       1220
+#define CANCEL_BOOKING_SUCCESS    1230
